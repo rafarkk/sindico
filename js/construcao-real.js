@@ -12,7 +12,7 @@
 	var COS = Math.cos(Math.PI / 6), SIN = 0.5;
 
 	// Limites só de segurança; o formulário já limita bem abaixo disso
-	var LIMITE = { predios: 60, andares: 80, lojas: 80, portarias: 4, cobertas: 400, descobertas: 400, visitantes: 200 };
+	var LIMITE = { predios: 60, andares: 80, aptos: 30, lojas: 80, portarias: 4, cobertas: 400, descobertas: 400, visitantes: 200 };
 
 	// Medidas em "metros" do mundo isométrico
 	var BW = 4, BD = 4, GAP = 3, FH = 0.9;
@@ -154,6 +154,7 @@
 		var n = {
 			predios: Math.min(cfg.predios, LIMITE.predios),
 			andares: Math.min(cfg.andares_por_predio, LIMITE.andares),
+			aptos: Math.max(1, Math.min(cfg.apartamentos_por_andar || 2, LIMITE.aptos)),
 			lojas: Math.min(cfg.lojas, LIMITE.lojas),
 			portarias: Math.min(cfg.portarias, LIMITE.portarias),
 			cobertas: Math.min(cfg.vagas.cobertas, LIMITE.cobertas),
@@ -384,6 +385,8 @@
 		});
 
 		/* --- Prédios: térreo (ou pódio com as lojas), andares e cobertura --- */
+		// Os apartamentos de cada andar viram janelas nas duas fachadas à vista
+		var janelasFrente = Math.ceil(n.aptos / 2), janelasDireita = n.aptos - janelasFrente;
 		var predios = [];
 		var lojasFeitas = [];
 		for (var ib = 0; ib < n.predios; ib++) {
@@ -446,12 +449,26 @@
 							P.faceY(y + BD, x + 1.5, x + 2.5, z + 0.07, z + 0.78, COR.porta);
 							P.faceX(x + BW, y + 0.6, y + 3.4, z + 0.3, z + 0.72, COR.vidro);
 						} else {
-							// Apartamento A (face esquerda) acende primeiro, depois o B (face direita)
-							var luzA = clamp01((t - ini - DUR_NIVEL) / 250);
-							var luzB = clamp01((t - ini - DUR_NIVEL - 150) / 250);
-							for (var j = 0; j < 2; j++) {
-								P.faceY(y + BD, x + 0.6 + j * 1.8, x + 1.6 + j * 1.8, z + 0.28, z + 0.68, mistura(COR.vidro, COR.luz, luzA));
-								P.faceX(x + BW, y + 0.6 + j * 1.8, y + 1.6 + j * 1.8, z + 0.28, z + 0.68, mistura(COR.vidro, COR.luz, luzB));
+							// Uma janela por apartamento do andar, dividida entre as duas fachadas à vista;
+							// elas acendem uma depois da outra, conforme o andar assenta
+							var j, luz, meio, trecho, larg;
+							if (janelasFrente) {
+								trecho = BW / janelasFrente;
+								larg = Math.min(1.1, trecho * 0.62) / 2;
+								for (j = 0; j < janelasFrente; j++) {
+									luz = clamp01((t - ini - DUR_NIVEL - j * 60) / 250);
+									meio = x + (j + 0.5) * trecho;
+									P.faceY(y + BD, meio - larg, meio + larg, z + 0.28, z + 0.68, mistura(COR.vidro, COR.luz, luz));
+								}
+							}
+							if (janelasDireita) {
+								trecho = BD / janelasDireita;
+								larg = Math.min(1.1, trecho * 0.62) / 2;
+								for (j = 0; j < janelasDireita; j++) {
+									luz = clamp01((t - ini - DUR_NIVEL - (janelasFrente + j) * 60) / 250);
+									meio = y + (j + 0.5) * trecho;
+									P.faceX(x + BW, meio - larg, meio + larg, z + 0.28, z + 0.68, mistura(COR.vidro, COR.luz, luz));
+								}
 							}
 						}
 					}
