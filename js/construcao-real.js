@@ -168,19 +168,14 @@
 		var rnd = aleatorio(cfg.predios * 131 + cfg.andares_por_predio * 17 + cfg.vagas.cobertas + 7);
 		var chao = [], solidos = [], fases = [];
 
-		/* --- Lojas: viram o térreo dos prédios, num pódio em volta da torre --- */
-		var lojasPorPredio = [];
-		for (var lp = 0; lp < n.predios; lp++) {
-			lojasPorPredio.push(Math.floor(n.lojas / n.predios) + (lp < n.lojas % n.predios ? 1 : 0));
-		}
-		var maiorLoja = lojasPorPredio.length ? Math.max.apply(null, lojasPorPredio) : 0;
-		// O pódio cresce até caber uma vitrine de LARG_LOJA em cada trecho das duas faces à vista
-		var PD = maiorLoja ? Math.max(1.5, (LARG_LOJA * maiorLoja - (BW + BD)) / 2) : 0;
-
 		/* --- Prédios no centro --- */
 		var cols = Math.max(1, Math.ceil(Math.sqrt(n.predios))), linhas = Math.max(1, Math.ceil(n.predios / cols));
-		var celula = BW + PD + GAP;
+		var celula = BW + GAP;
 		var regiaoW = cols * celula - GAP, regiaoD = linhas * celula - GAP;
+
+		/* --- Galeria de lojas: bloco térreo ao lado dos prédios, com as vitrines à mostra --- */
+		var galeriaW = n.lojas ? 3.2 : 0;
+		var galeriaD = n.lojas ? Math.max(5, n.lojas * LARG_LOJA) : 0;
 
 		/* --- Estacionamento: cobertas a leste, descobertas e visitantes a oeste --- */
 		function montarLado(qtd) {
@@ -198,16 +193,21 @@
 		}
 		var leste = montarLado(n.cobertas);
 		var oeste = montarLado(n.descobertas + n.visitantes);
-		var larguraLado = Math.max(leste.largura, oeste.largura);
+		// A leste ficam a galeria e as vagas cobertas; a oeste, as descobertas e as de visitantes
+		var bandaLeste = (galeriaW ? galeriaW + GAP : 0) + (leste.qtd ? leste.largura + GAP : 0);
+		var bandaOeste = oeste.qtd ? oeste.largura + GAP : 0;
+		var banda = Math.max(bandaLeste, bandaOeste);
 
-		var meiaAltura = Math.max(regiaoD / 2,
+		var meiaAltura = Math.max(regiaoD / 2, galeriaD / 2,
 			leste.meioCima + CORREDOR / 2, leste.meioBaixo + CORREDOR / 2,
 			oeste.meioCima + CORREDOR / 2, oeste.meioBaixo + CORREDOR / 2);
 		var loteD = 2 * (BORDA + meiaAltura);
-		var loteW = regiaoW + 2 * (BORDA + (larguraLado ? larguraLado + GAP : 0));
+		var loteW = regiaoW + 2 * (BORDA + banda);
 		var cx = loteW / 2, cy = loteD / 2;
 		var x0 = cx - regiaoW / 2, y0 = cy - regiaoD / 2;
-		var xLeste = x0 + regiaoW + GAP, xOeste = x0 - GAP - oeste.largura;
+		var xGaleria = x0 + regiaoW + GAP, yGaleria = cy - galeriaD / 2;
+		var xLeste = x0 + regiaoW + GAP + (galeriaW ? galeriaW + GAP : 0);
+		var xOeste = x0 - GAP - oeste.largura;
 
 		// Posição de cada vaga: metade acima e metade abaixo do corredor central
 		function vagaPos(lado, i, xBase) {
@@ -227,11 +227,13 @@
 		var LADOS = ['S', 'N', 'L', 'O'];
 		var portariasLados = LADOS.slice(0, n.portarias);
 		function temLado(l) { return portariasLados.indexOf(l) >= 0; }
+		// As portarias do fundo (norte e oeste) saem da linha dos prédios,
+		// senão as torres as escondem
 		function posPortaria(lado) {
 			if (lado === 'S') return { x: cx - 1.1, y: loteD - CALCADA - 3.0 };
-			if (lado === 'N') return { x: cx - 1.1, y: CALCADA + 0.6 };
+			if (lado === 'N') return { x: Math.min(cx + regiaoW / 2 + 1.6, loteW - CALCADA - 3.0), y: CALCADA + 0.6 };
 			if (lado === 'L') return { x: loteW - CALCADA - 3.0, y: cy - 1.1 };
-			return { x: CALCADA + 0.6, y: cy - 1.1 };
+			return { x: CALCADA + 0.6, y: Math.min(cy + regiaoD / 2 + 1.6, loteD - CALCADA - 3.0) };
 		}
 		// A rua do sul existe sempre; as outras só onde há portaria
 		function temRua(l) { return l === 'S' || temLado(l); }
@@ -242,9 +244,10 @@
 		var tPred = tPort + n.portarias * passoPort + 200;
 		var passoPredio = n.predios > 1 ? Math.min(600, 3000 / n.predios) : 0;
 		var passoAndar = Math.min(260, 3200 / (n.andares + 1));
-		var passoLoja = maiorLoja ? Math.min(220, 1600 / maiorLoja) : 0;
+		var tLoja = n.lojas ? tPred + 200 : 0;
+		var passoLoja = n.lojas ? Math.min(220, 1800 / n.lojas) : 0;
 		var fimPredios = tPred + (n.predios - 1) * passoPredio + (n.andares + 1) * passoAndar + 350;
-		var fimLojas = maiorLoja ? tPred + (n.predios - 1) * passoPredio + DUR_NIVEL + maiorLoja * passoLoja + 300 : 0;
+		var fimLojas = n.lojas ? tLoja + 450 + n.lojas * passoLoja + 300 : 0;
 		var totalVagas = n.cobertas + n.descobertas + n.visitantes;
 		var tVaga = Math.max(fimPredios, fimLojas) - 600;
 		var passoVaga = totalVagas ? Math.min(90, 2500 / totalVagas) : 0;
@@ -253,7 +256,7 @@
 		fases.push({ inicio: 0, texto: 'Preparando o terreno' });
 		if (n.portarias) fases.push({ inicio: tPort, texto: n.portarias > 1 ? 'Instalando as portarias' : 'Instalando a portaria' });
 		fases.push({ inicio: tPred, texto: n.predios > 1 ? 'Construindo os prédios' : 'Construindo o prédio' });
-		if (n.lojas) fases.push({ inicio: tPred + DUR_NIVEL, texto: 'Abrindo as lojas' });
+		if (n.lojas) fases.push({ inicio: tLoja, texto: 'Abrindo as lojas' });
 		if (totalVagas) fases.push({ inicio: tVaga, texto: 'Demarcando as vagas' });
 
 		/* --- Terreno, ruas, calçadas, caminhos e asfalto --- */
@@ -286,9 +289,9 @@
 				// Praça sob os prédios e caminho de cada portaria até ela
 				P.chao(x0 - 1, y0 - 1, regiaoW + 2, regiaoD + 2, COR.praca);
 				if (temLado('S')) P.chao(cx - 0.8, y0 + regiaoD, 1.6, loteD - CALCADA - (y0 + regiaoD), COR.praca);
-				if (temLado('N')) P.chao(cx - 0.8, CALCADA, 1.6, y0 - CALCADA, COR.praca);
+				if (temLado('N')) P.chao(posPortaria('N').x, CALCADA, 2.2, y0 - CALCADA, COR.praca);
 				if (temLado('L')) P.chao(x0 + regiaoW, cy - 0.8, loteW - CALCADA - (x0 + regiaoW), 1.6, COR.praca);
-				if (temLado('O')) P.chao(CALCADA, cy - 0.8, x0 - CALCADA, 1.6, COR.praca);
+				if (temLado('O')) P.chao(CALCADA, posPortaria('O').y, x0 - CALCADA, 2.2, COR.praca);
 
 				// Asfalto do estacionamento e saída para a rua
 				if (leste.qtd) {
@@ -324,6 +327,7 @@
 			var ax = CALCADA + 0.8 + rnd() * (loteW - 2 * CALCADA - 1.6);
 			var ay = CALCADA + 0.8 + rnd() * (loteD - 2 * CALCADA - 1.6);
 			var livre = (ax < x0 - 1.5 || ax > x0 + regiaoW + 1.5 || ay < y0 - 1.5 || ay > y0 + regiaoD + 1.5) &&
+				(!n.lojas || ax < xGaleria - 1.5 || ax > xGaleria + galeriaW + 1.5 || ay < yGaleria - 1.5 || ay > yGaleria + galeriaD + 1.5) &&
 				(!leste.qtd || ax < xLeste - 1.5 || ax > xLeste + leste.largura + 1.5) &&
 				(!oeste.qtd || ax < xOeste - 1.5 || ax > xOeste + oeste.largura + 1.5) &&
 				Math.abs(ax - cx) > 1.8 && Math.abs(ay - cy) > 1.8;
@@ -384,49 +388,49 @@
 			});
 		});
 
-		/* --- Prédios: térreo (ou pódio com as lojas), andares e cobertura --- */
-		// Os apartamentos de cada andar viram janelas nas duas fachadas à vista
-		var janelasFrente = Math.ceil(n.aptos / 2), janelasDireita = n.aptos - janelasFrente;
-		var predios = [];
+		/* --- Galeria de lojas: um bloco térreo a leste dos prédios, vitrines voltadas para fora --- */
 		var lojasFeitas = [];
-		for (var ib = 0; ib < n.predios; ib++) {
-			(function (i) {
-				var x = x0 + (i % cols) * celula, y = y0 + Math.floor(i / cols) * celula;
-				var inicio = tPred + i * passoPredio;
-				var qtdLojas = lojasPorPredio[i] || 0;
-				var predio = { inicio: inicio, fimCobertura: inicio + (n.andares + 1) * passoAndar + 350 };
-				predios.push(predio);
-
-				// Vitrines divididas entre as duas faces à vista do pódio
-				var frenteL = BW + PD, direitaL = BD + PD;
-				var nFrente = qtdLojas ? Math.max(1, Math.round(qtdLojas * frenteL / (frenteL + direitaL))) : 0;
-				if (nFrente > qtdLojas) nFrente = qtdLojas;
-				var nDireita = qtdLojas - nFrente;
-				for (var j = 0; j < qtdLojas; j++) lojasFeitas.push(inicio + DUR_NIVEL + j * passoLoja + 300);
-
-				function vitrines(P, t, z) {
-					var yf = y + BD + PD, xf = x + BW + PD, j, p, xa, xb, ya, yb;
-					for (j = 0; j < nFrente; j++) {
-						p = suave((t - (inicio + DUR_NIVEL + j * passoLoja)) / 300);
-						if (p <= 0) continue;
-						P.ctx.globalAlpha = p;
-						xa = x + j * frenteL / nFrente; xb = x + (j + 1) * frenteL / nFrente;
-						P.faceY(yf, xa + 0.12, xb - 0.12, z + 0.12, z + 0.72, COR.vidro);
-						P.poli([P.p(xa, yf, z + 0.95), P.p(xb, yf, z + 0.95), P.p(xb, yf + 0.5, z + 0.72), P.p(xa, yf + 0.5, z + 0.72)],
-							j % 2 ? '#ffffff' : COR.toldo);
-						P.ctx.globalAlpha = 1;
-					}
-					for (j = 0; j < nDireita; j++) {
-						p = suave((t - (inicio + DUR_NIVEL + (nFrente + j) * passoLoja)) / 300);
-						if (p <= 0) continue;
-						P.ctx.globalAlpha = p;
-						ya = y + j * direitaL / nDireita; yb = y + (j + 1) * direitaL / nDireita;
-						P.faceX(xf, ya + 0.12, yb - 0.12, z + 0.12, z + 0.72, COR.vidro);
-						P.poli([P.p(xf, ya, z + 0.95), P.p(xf, yb, z + 0.95), P.p(xf + 0.5, yb, z + 0.72), P.p(xf + 0.5, ya, z + 0.72)],
+		if (n.lojas) {
+			for (var jl = 0; jl < n.lojas; jl++) lojasFeitas.push(tLoja + 450 + jl * passoLoja + 300);
+			solidos.push({
+				chave: xGaleria + galeriaW / 2 + cy,
+				fim: fimLojas,
+				caixa: [xGaleria, yGaleria, 0, xGaleria + galeriaW + 0.7, yGaleria + galeriaD, 1.6],
+				desenhar: function (P, t) {
+					var p = suave((t - tLoja) / 450);
+					if (p <= 0) return;
+					var z = (1 - p) * 3;
+					P.ctx.globalAlpha = p;
+					P.caixa(xGaleria, yGaleria, z, galeriaW, galeriaD, 1.25, COR.podio);
+					P.caixa(xGaleria - 0.15, yGaleria - 0.15, z + 1.25, galeriaW + 0.3, galeriaD + 0.3, 0.14, COR.laje);
+					P.ctx.globalAlpha = 1;
+					if (p < 1 || P.S < 2) return;
+					// Uma vitrine por loja, na face virada para o estacionamento
+					var xf = xGaleria + galeriaW, trecho = galeriaD / n.lojas;
+					for (var j = 0; j < n.lojas; j++) {
+						var pj = suave((t - (tLoja + 450 + j * passoLoja)) / 300);
+						if (pj <= 0) continue;
+						var ya = yGaleria + j * trecho, yb = ya + trecho;
+						P.ctx.globalAlpha = pj;
+						P.faceX(xf, ya + 0.12, yb - 0.12, 0.15, 0.85, COR.vidro);
+						P.poli([P.p(xf, ya, 1.08), P.p(xf, yb, 1.08), P.p(xf + 0.55, yb, 0.86), P.p(xf + 0.55, ya, 0.86)],
 							j % 2 ? '#ffffff' : COR.toldo);
 						P.ctx.globalAlpha = 1;
 					}
 				}
+			});
+		}
+
+		/* --- Prédios: térreo, andares e cobertura --- */
+		// Os apartamentos de cada andar viram janelas nas duas fachadas à vista
+		var janelasFrente = Math.ceil(n.aptos / 2), janelasDireita = n.aptos - janelasFrente;
+		var predios = [];
+		for (var ib = 0; ib < n.predios; ib++) {
+			(function (i) {
+				var x = x0 + (i % cols) * celula, y = y0 + Math.floor(i / cols) * celula;
+				var inicio = tPred + i * passoPredio;
+				var predio = { inicio: inicio, fimCobertura: inicio + (n.andares + 1) * passoAndar + 350 };
+				predios.push(predio);
 
 				function nivel(P, t, k, detalhe) {
 					var ini = inicio + k * passoAndar;
@@ -434,13 +438,6 @@
 					if (p <= 0) return false;
 					var z = k * FH + (1 - p) * 2.5;
 					P.ctx.globalAlpha = p;
-					if (k === 0 && qtdLojas) {
-						// Térreo comercial: o pódio das lojas, em volta da torre
-						P.caixa(x, y, z, BW + PD, BD + PD, FH, COR.podio);
-						P.ctx.globalAlpha = 1;
-						if (p >= 1) vitrines(P, t, z);
-						return true;
-					}
 					P.caixa(x, y, z, BW, BD, FH, COR.predio);
 					if (detalhe) {
 						P.faceY(y + BD, x, x + BW, z, z + 0.07, COR.faixaAndar[0]);
@@ -482,7 +479,7 @@
 					var some = clamp01((t - predio.fimCobertura - 300) / 500);
 					var alfa = aparece * (1 - some);
 					if (alfa <= 0) return;
-					var mx = x + BW + PD + 0.6, my = y + BD / 2 - 0.15;
+					var mx = x + BW + 0.6, my = y + BD / 2 - 0.15;
 					var alturaTotal = (n.andares + 1) * FH + 2.2;
 					var zTopo = alturaTotal * aparece;
 					var c = P.ctx, detalhe = P.S >= 3;
@@ -503,9 +500,9 @@
 				}
 
 				solidos.push({
-					chave: x + (BW + PD) / 2 + y + (BD + PD) / 2,
-					fim: Math.max(predio.fimCobertura + 800, inicio + DUR_NIVEL + qtdLojas * passoLoja + 300),
-					caixa: [x, y, 0, x + BW + PD, y + BD + PD, (n.andares + 1) * FH + 1.2],
+					chave: x + BW / 2 + y + BD / 2,
+					fim: predio.fimCobertura + 800,
+					caixa: [x, y, 0, x + BW + 2.4, y + BD, (n.andares + 1) * FH + 1.2],
 					desenhar: function (P, t) {
 						var detalhe = P.S >= 3;
 						var topoObra = 0, k = 0;
@@ -513,13 +510,7 @@
 						if (!detalhe) {
 							var iniciados = Math.min(n.andares, Math.floor((t - inicio) / passoAndar));
 							if (iniciados >= 1) {
-								if (qtdLojas) {
-									P.caixa(x, y, 0, BW + PD, BD + PD, FH, COR.podio);
-									vitrines(P, t, 0);
-									if (iniciados >= 2) P.caixa(x, y, FH, BW, BD, (iniciados - 1) * FH, COR.predio);
-								} else {
-									P.caixa(x, y, 0, BW, BD, iniciados * FH, COR.predio);
-								}
+								P.caixa(x, y, 0, BW, BD, iniciados * FH, COR.predio);
 								k = iniciados;
 								topoObra = iniciados * FH;
 							}
