@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gestor de condom&iacute;nios">
+    <meta name="author" content="Sistemas Brasileiros">
+    <link rel="shortcut icon" href="ico/favicon.png">
+
+    <title>Meu S&iacute;ndico Virtual</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom bootstrap styles -->
+    <link href="css/overwrite.css" rel="stylesheet">
+
+	<!-- Font -->
+	<link href="fonts/open-sans/stylesheet.css" rel="stylesheet">
+	
+	<!-- Font icons -->
+	<link href="css/font-awesome.css" rel="stylesheet">
+    <link href="fonts/pe-icon-7-stroke/css/pe-icon-7-stroke.css" rel="stylesheet">
+	<link href="fonts/pe-icon-7-stroke/css/helper.css" rel="stylesheet">
+	
+	<!-- Animate css -->
+    <link href="css/animate.css" rel="stylesheet">	
+	
+	<!-- prettyPhoto -->	
+	<link href="css/prettyPhoto.css" rel="stylesheet" />
+	
+    <!-- flexslider -->	
+	<link href="css/flexslider.css" rel="stylesheet">
+
+	<!-- Owl carousel -->
+    <link href="css/owl.carousel.css" rel="stylesheet">
+    <link href="css/owl.theme.css" rel="stylesheet">
+    <link href="css/owl.transitions.css" rel="stylesheet">
+	
+	<!-- Custom styles for this template -->
+    <link href="css/style.css" rel="stylesheet">
+
+	<!-- Theme skin -->
+	<link href="skins/default.css" rel="stylesheet" />
+
+  	<style>
+		/* Formulário de configuração (passo 2 do card de preços) */
+		.config-form .pricing-head h4{font-size:24px;line-height:28px;}
+		.config-form .pricing-head p{font-size:15px;line-height:20px;margin-top:6px;}
+		.config-body{float:left;width:100%;background:#fff;border-left:1px solid #e2e2e2;border-right:1px solid #e2e2e2;padding:5px 22px 0 22px;text-align:left;}
+		.config-grupo{padding:16px 0;border-bottom:1px solid #eee;}
+		.config-grupo:last-child{border-bottom:none;}
+		.config-grupo h5{margin:0 0 10px 0;font-size:15px;line-height:20px;font-weight:700;color:#404040;text-transform:none;}
+		.config-grupo h5 i{color:#319DB5;font-size:22px;vertical-align:middle;margin-right:6px;}
+		.config-campos{display:flex;gap:10px;}
+		.config-campos > div{flex:1;min-width:0;}
+		.config-campos label{display:block;font-size:12px;line-height:16px;font-weight:400;color:#777;margin:0 0 4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+		.config-form .form-control{height:40px;font-size:16px;text-align:center;padding:6px;box-shadow:none;}
+		.config-form .form-control:focus{border-color:#319DB5;}
+		.config-form .validation{color:#c0392b;font-size:12px;line-height:16px;margin-top:3px;font-style:normal;}
+		/* Sim / Não */
+		.seg{display:flex;border:1px solid #ccc;border-radius:4px;overflow:hidden;height:40px;}
+		.seg input{position:absolute;opacity:0;pointer-events:none;}
+		.seg label{flex:1;margin:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:400;color:#555;cursor:pointer;transition:background-color .2s,color .2s;white-space:nowrap;}
+		.seg label + input + label{border-left:1px solid #ccc;}
+		.seg input:checked + label{background:#319DB5;color:#fff;}
+		.seg input:focus-visible + label{box-shadow:inset 0 0 0 2px #222;}
+		/* Conferência do total */
+		.config-total{margin-top:12px;padding:8px 10px;border-radius:4px;background:#eaf6f9;color:#2a7f93;font-size:14px;line-height:20px;text-align:center;}
+		.config-total strong{font-weight:700;}
+		.config-total.config-erro{background:#fdeeee;color:#c0392b;}
+		.config-total #total-aviso{color:#c0392b;font-size:13px;margin-top:4px;}
+		.config-total #total-aviso:empty{display:none;}
+		.config-total #total-aviso a{color:#c0392b;text-decoration:underline;}
+		.config-form .pricing-bottom .btn{margin:4px;}
+		/* Troca entre os cards */
+		.passo-anim{-webkit-animation-duration:.45s;animation-duration:.45s;}
+		/* Construção do condomínio (enquanto a configuração é criada) */
+		body.construcao-aberta{overflow:hidden;}
+		.construcao{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2000;background:rgba(26,26,26,.8);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
+		.construcao[hidden]{display:none;}
+		.construcao-card{width:100%;max-width:1280px;margin:auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);outline:none;}
+		.construcao-card .pricing-head{float:none;border-radius:0;padding:18px 28px;}
+		.construcao-card .pricing-head h4{font-size:24px;line-height:30px;margin:0 0 2px 0;}
+		.construcao-card .pricing-head p{font-size:15px;line-height:20px;}
+		.construcao-palco{position:relative;background:linear-gradient(#e3f2f7,#fbfdfe);}
+		.construcao-palco canvas{display:block;width:100%;height:340px;}
+		.construcao-nota{position:absolute;left:14px;bottom:6px;margin:0;font-size:12px;line-height:16px;color:#6b7a82;}
+		.construcao-numeros{display:flex;flex-wrap:wrap;border-top:1px solid #e2e2e2;}
+		.construcao-numeros > div{flex:1 1 0;min-width:96px;padding:10px 6px;text-align:center;border-right:1px solid #eee;}
+		.construcao-numeros > div:last-child{border-right:none;}
+		.construcao-numeros strong{display:block;font-size:22px;line-height:26px;color:#353940;font-weight:700;}
+		.construcao-numeros span{font-size:12px;color:#777;}
+		.construcao-vagas-detalhe{display:block;margin-top:2px;font-size:11px;line-height:14px;color:#8a979d;}
+		.construcao-progresso{height:6px;background:#e2e2e2;}
+		.construcao-progresso div{height:100%;width:0;background:#319DB5;transition:width .2s linear;}
+		.construcao-acoes{float:none;border:0;border-top:1px solid #e2e2e2;border-radius:0;}
+		.construcao-acoes .btn{margin:4px;}
+		@media (max-width:480px){.construcao{padding:8px;}.construcao-card .pricing-head{padding:14px 18px;}.construcao-numeros > div{min-width:33%;border-bottom:1px solid #eee;}}
+	</style>
+  </head>
+
+  <body>
+	<!-- Start preloading -->	
+	<div id="loading" class="loading-invisible">
+		<i class="pe-7s-refresh pe-spin pe-3x pe-va"></i><br />
+		<p>Por favor aguarde...</p>
+	</div>
+	<!-- End preloading -->
+
+	<!-- Start header -->
+	<header>
+		<div class="navbar navbar-default navbar-fixed-top" role="navigation">
+			<div class="container">
+				<div class="navbar-header">
+					<button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+						<span class="sr-only">Alternar</span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+					</button>
+					<a class="navbar-brand" href="index.html"><img src="img/logo.png" alt="" /></a>
+				</div>
+				<div class="collapse navbar-collapse">
+					<ul class="nav navbar-nav">
+						<li><a id="GoToHome" href="#home" class="selected">Home</a></li>
+						<li><a id="GoToFeatures" href="#funcionalidades">Funcionalidades</a></li>	
+						<li><a id="GoToDesc" href="#descricao">Descri&ccedil;&atilde;o</a></li>
+						<li><a id="GoToPricing" href="#precos">Pre&ccedil;os</a></li>
+						<!--<li><a id="GoToTestimoni" href="#comentarios">Coment&aacute;rios</a></li>-->
+						<li><a id="GoToContact" href="#contato">Contato</a></li>							
+					</ul>
+					<div class="navbar-right">
+						<a href="signin.html" class="btn btn-bordered">Entrar</a>
+						<a href="#precos" id="contratar" class="btn btn-primary">Contratar</a>
+					</div>	
+				</div><!--/.nav-collapse -->
+			</div>
+		</div>	
+	</header>
+	<!-- End header -->
+	
+	<!-- End home -->
+	<section id="home" class="home-wrapper parallax image-bg">
+		<div class="home-contain">
+			<div class="container">
+				<div class="row text-center wow fadeInUp" data-wow-delay="0.4s">
+					<div class="col-md-10 col-md-offset-1">
+						<h3>Seu condomínio sempre online <span>aproxime-se cada vez mais de seus moradores</span></h3>
+						<!--
+						<p class="btn-inline">
+							<a href="http://www.youtube.com/watch?v=lZr5ZsFlZsM&amp;feature=share&amp;list=ALzxNYRMVOCRi5wLzuGUE7XQpqhCfYTwzI" data-pretty="prettyPhoto" class="btn btn-bordered btn-lg zoom">Assista ao v&iacute;deo</a>
+							<a href="#" class="btn btn-primary btn-lg">Experimente gr&aacute;tis</a>
+						</p> 
+						-->
+						<div class="home-slider">
+							<div class="slider-wrapper">
+								<div class="imac-device">
+									<ul class="slides">
+										<li>
+											<a href="#"><img src="img/slider/img1.png" alt="Login" /></a>
+										</li>
+										<li>
+											<a href="#"><img src="img/slider/img2.png" alt="Tela administrativa" /></a>
+										</li>
+										<li>
+											<a href="#"><img src="img/slider/img3.png" alt="" /></a>
+										</li>
+										<li>
+											<a href="#"><img src="img/slider/img4.png" alt="" /></a>
+										</li>
+									</ul>
+								</div>
+							</div>
+							<img src="img/imac.png" class="img-responsive" alt="" />
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+	<!-- End home -->
+	
+	<div class="clearfix"></div>
+	
+	<!-- Start pricing -->
+	<section id="precos" class="contain desc-wrapp gray-bg">
+		<div class="container">
+			<div class="row text-center" id="precosC">
+				<div class="col-md-10 col-md-offset-1 wow fadeInUp" data-wow-delay="0.4s">
+					<h3 class="heading"><span>Nossos pre&ccedil;os</span>De acordo com o tamanho da sua necessidade</h3>
+				</div>
+			</div>
+			<div class="row wow fadeInDown" data-wow-delay="0.4s">
+				<div class="col-md-4">
+					<img src="img/preco1.png" style="float:right" />
+				</div>
+				<div class="col-md-4">
+					<div class="pricing-wrapper" id="passo-precos">
+						<div class="pricing-head">
+							<div class="col-md-9">
+								<p>Quantas unidades?</p><br />
+								<input class="form-control" type="text" name="quantidade" id="quantidade" maxlength="4" value="25" placeholder="Quantidade" required />
+							</div>
+							<div class="col-md-3">
+								<span class="pricing-price"><sup>R$ </sup ><span id="vlunit">3,00</span></span>
+							</div>
+						</div>
+						<ul>
+							<li><strong id="qtunit">25</strong> unidades <br /><span style="font-size:12px">* M&iacute;nimo de 25 unidades</span></li>
+							<li>R$ <strong id="vlunit2"> 3,00 </strong> mensais por unidades</li>
+							<li>R$ <strong id="vlmensal"> 75,00 </strong> mensais</li>
+						</ul>
+						<div class="pricing-bottom">
+							<a href="#precosC" id="proximo" class="btn btn-primary btn-lg">Pr&oacute;ximo <i class="fa fa-angle-right"></i></a>
+						</div>
+					</div>
+						<form id="configform" class="pricing-wrapper config-form" style="display:none" novalidate>
+							<div class="pricing-head">
+								<h4>Estrutura do condom&iacute;nio</h4>
+								<p id="unidades-info">Ajuste o que for diferente.</p>
+							</div>
+							<div class="config-body">
+								<div class="config-grupo">
+									<h5><i class="pe-7s-culture"></i>Pr&eacute;dios</h5>
+									<div class="config-campos">
+										<div><label for="predios">Pr&eacute;dios</label><input class="form-control" type="number" id="predios" min="1" max="999" data-min="1" value="1" /><div class="validation"></div></div>
+										<div><label for="andares">Andares</label><input class="form-control" type="number" id="andares" min="1" max="999" data-min="1" value="10" /><div class="validation"></div></div>
+										<div><label for="apartamentos">Aptos/pr&eacute;dio</label><input class="form-control" type="number" id="apartamentos" min="1" max="9999" data-min="1" value="25" /><div class="validation"></div></div>
+									</div>
+									<div class="config-total"><span id="total-predios">1</span> &times; <span id="total-aptos">25</span> = <strong id="total-apartamentos">25</strong> apartamentos<span id="total-unidades"></span>
+										<div id="total-aviso" role="alert"></div>
+									</div>
+								</div>
+								<div class="config-grupo">
+									<h5><i class="fa fa-car"></i>Vagas de garagem</h5>
+									<div class="config-campos">
+										<div><label for="vagas-cobertas">Cobertas</label><input class="form-control" type="number" id="vagas-cobertas" min="0" max="99999" data-min="0" value="40" /><div class="validation"></div></div>
+										<div><label for="vagas-descobertas">Descobertas</label><input class="form-control" type="number" id="vagas-descobertas" min="0" max="99999" data-min="0" value="10" /><div class="validation"></div></div>
+										<div><label for="vagas-visitantes">Visitantes</label><input class="form-control" type="number" id="vagas-visitantes" min="0" max="9999" data-min="0" value="5" /><div class="validation"></div></div>
+									</div>
+									<div class="config-campos" style="margin-top:10px;align-items:center;">
+										<div style="flex:2"><label style="font-size:14px;color:#555;margin:0;white-space:normal">As vagas s&atilde;o numeradas?</label></div>
+										<div><div class="seg" role="radiogroup"><input type="radio" name="vagas-numeradas" id="vagas-numeradas-nao" value="nao" /><label for="vagas-numeradas-nao">N&atilde;o</label><input type="radio" name="vagas-numeradas" id="vagas-numeradas-sim" value="sim" checked /><label for="vagas-numeradas-sim">Sim</label></div></div>
+									</div>
+								</div>
+								<div class="config-grupo config-campos">
+									<div>
+										<h5><i class="pe-7s-shopbag"></i>Lojas</h5>
+										<input class="form-control" type="number" id="lojas" min="0" max="999" data-min="0" value="0" aria-label="Quantidade de lojas" /><div class="validation"></div>
+									</div>
+									<div>
+										<h5><i class="pe-7s-key"></i>Portarias</h5>
+										<input class="form-control" type="number" id="portarias" min="0" max="99" data-min="0" value="1" aria-label="Quantidade de portarias" /><div class="validation"></div>
+									</div>
+								</div>
+								<!-- TODO: chave só para testes da animação -->
+								<div class="config-grupo">
+									<div class="config-campos" style="align-items:center;">
+										<div style="flex:2"><label style="font-size:14px;color:#555;margin:0;white-space:normal">Anima&ccedil;&atilde;o (teste)</label></div>
+										<div style="flex:3"><div class="seg" role="radiogroup"><input type="radio" name="animacao" id="animacao-limitada" value="limitada" /><label for="animacao-limitada">Com limite</label><input type="radio" name="animacao" id="animacao-real" value="real" checked /><label for="animacao-real">Sem limite</label></div></div>
+									</div>
+								</div>
+							</div>
+							<div class="pricing-bottom">
+								<button type="button" id="voltar" class="btn btn-bordered btn-lg" style="color:#404040;border-color:#e2e2e2"><i class="fa fa-angle-left"></i> Voltar</button>
+								<button type="submit" class="btn btn-primary btn-lg">Teste gr&aacute;tis</button>
+							</div>
+						</form>
+				</div>
+				<div class="col-md-4">
+					<img src="img/preco2.png" />
+				</div>
+			</div>
+		</div>
+	</section>
+	<!-- End pricing -->
+	
+	<div class="clearfix"></div>
+
+	<!-- Start download -->	
+	<section id="download">
+		<div class="download-wrapper">
+			<div class="container">
+				<div class="row wow fadeInUp" data-wow-delay="0.4s">
+					<div class="col-md-8 col-md-offset-2">
+						<h3>Quer receber nossas novidades ?</h3>
+						<p>Enviamos para seu e-mail gr&aacute;tis!</p>
+						<form>
+							<fieldset class="subscribe-form popular">
+								<input class="subscribe" type="text" placeholder="Informe seu e-mail">
+								<button class="subscribe-button" type="button">Eu QUERO!</button>
+							</fieldset>	
+						</form>	
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+	<!-- End download -->
+	
+	<div class="clearfix"></div>
+		
+	<!-- Start features -->
+	<section id="funcionalidades" class="contain gray-bg">
+		<div class="container">
+			<div class="row text-center wow fadeInUp" data-wow-delay="0.4s">
+				<div class="col-md-8 col-md-offset-2">
+					<h3 class="heading"><span>Funcionalidades</span> do sistema</h3>
+				</div>
+			</div>
+			<div class="row wow fadeInDown" data-wow-delay="0.4s">
+				<div class="col-md-4 feature-box">
+					<i class="pe-7s-phone pe-feature"></i>
+					<h5>Acesso do seu celular</h5>
+					<p>
+					Esse sistema pode ser acessando tanto do seu computador, notebook, tablet ou celular, ele está sempre ao seu alcance.
+					</p>
+				</div>
+				<div class="col-md-4 feature-box">
+					<i class="pe-7s-edit pe-feature"></i>
+					<h5>Fácil configuração</h5>
+					<p>
+					Em pouco tempo voc&ecirc; configura tudo que precisa, e j&aacute; estar&aacute; usando o sistema com muita facilidade.
+					</p>
+				</div>
+				<div class="col-md-4 feature-box">
+					<i class="pe-7s-graph1 pe-feature"></i>
+					<h5>Portal da transpar&ecirc;ncia</h5>
+					<p>
+					Exiba as atas de reuni&otilde;es, presta&ccedil;&atilde;o de contas, relat&oacute;rios anuais, registros de ocorr&ecirc;ncias, calend&aacute;rio de eventos, fornecedores, ve&iacute;culos.
+					</p>
+				</div>
+				<div class="col-md-4 feature-box">
+					<i class="pe-7s-paper-plane pe-feature"></i>
+					<h5>Classificados internos</h5>
+					<p>
+					Permita an&uacute;ncios entre moradores, onde poder&atilde;o anunciar seus servi&ccedil;os e vendas r&aacute;pidas.
+					</p>
+				</div>
+				<div class="col-md-4 feature-box">
+					<i class="pe-7s-share pe-feature"></i>
+					<h5>Comunique-se com todos</h5>
+					<p>
+					Sistema de alertas e mensagens com funcionários e moradores, esteja sempre em contato com eles.
+					</p>
+				</div>
+				<div class="col-md-4 feature-box">
+					<i class="pe-7s-paperclip pe-feature"></i>
+					<h5>Financeiro e boletos bancários</h5>
+					<p>
+					Facilite a entrega digital das cobranças aos moradores, atualize faturas e informe o recebimento.
+					</p>
+				</div>
+			</div>
+		</div>
+	</section>
+	<!-- End features -->
+	
+	<div class="clearfix"></div>
+	
+	<!-- Start description -->
+	<section id="descricao" class="contain">
+		<div class="container">
+			<div class="row">
+				<div class="col-md-7 wow fadeInLeft" data-wow-delay="0.4s">
+					<img src="img/device.png" class="img-responsive" alt="" />
+				</div>
+				<div class="col-md-5 margintop40 wow fadeInRight" data-wow-delay="0.4s">
+					<div class="accordion clearfix" id="accordion1">
+						<div class="accordion-group">
+							<div class="accordion-heading">										
+								<a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#collapse1">
+									<i class="pe-7s-angle-down"></i> Reserva de &aacute;reas comuns
+								</a>
+							</div>
+							<div id="collapse1" class="accordion-body collapse in">
+								<div class="accordion-inner">
+									<p>
+									Os moradores poderão reservar as áreas comuns com facilidade e sem sair de casa, permitindo rapidamente descobrir as datas e horários disponíveis e então reservar o mais adequado. 
+									</p>
+								</div>
+							</div>
+						</div>
+						<div class="accordion-group">
+							<div class="accordion-heading">
+								<a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#collapse2">
+									<i class="pe-7s-angle-down"></i> Liberar entrada de ve&iacute;culos
+								</a>
+							</div>
+							<div id="collapse2" class="accordion-body collapse">
+								<div class="accordion-inner">
+									<p>
+									Os moradores poderão informar a placa do carro das visitas que aguardam, facilitando a liberação da entrada dos mesmos.
+									</p>
+								</div>
+							</div>
+						</div>
+						<div class="accordion-group">
+							<div class="accordion-heading">
+								<a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#collapse3">
+									<i class="pe-7s-angle-down"></i> Fornecedores
+								</a>
+							</div>
+							<div id="collapse3" class="accordion-body collapse">
+								<div class="accordion-inner">
+									<p>
+									Poder&aacute; registrar conv&ecirc;nios com fornecedores para descontos ou outros benef&iacutecios para os moradores e o condom&iacute;nio.
+									</p>
+								</div>
+							</div>
+						</div>								
+					</div>					
+				</div>
+			</div>
+		</div>
+	</section>
+	<!-- End description -->
+	
+	<div class="clearfix"></div>
+			
+	<!-- Start contact -->
+	<section id="contato">
+		<div class="contact-contain">
+			<div class="container">
+				<div class="row text-center">
+					<div class="col-md-12 wow fadeInUp" data-wow-delay="0.4s">
+						<h3 class="heading"><span>Contato</span>Fale conosco</h3>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-md-10 col-md-offset-1 wow fadeInDown" data-wow-delay="0.4s">
+						<form id="contactform" action="contact/contact.php" method="post" class="validateform" name="leaveContact">
+							<div class="clearfix"></div>
+							<div id="sendmessage">
+								<div class="alert alert-info marginbot35">
+									<button type="button" class="close" data-dismiss="alert">&times;</button>
+									Sua mensagem foi enviada. Obrigado!
+								</div>							
+							</div>								
+							<ul class="listForm">
+								<li>
+									<i class="pe-7s-users"></i>
+									<input class="form-control input-name" type="text" name="name" data-rule="required" data-msg="Por favor informe seu nome completo" placeholder="Seu nome completo" />
+									<div class="validation"></div>
+								</li>
+								<li>
+									<i class="pe-7s-mail"></i>
+									<input class="form-control input-email" type="text" name="email" data-rule="email" data-msg="Por favor informe um email v&aacute;lido" placeholder="Seu email" />	
+									<div class="validation"></div>
+								</li>
+								<li class="push">
+									<i class="pe-7s-paper-plane"></i>
+									<textarea class="form-control input-message" rows="6" name="message" data-rule="required" data-msg="Por favor informe sua mensagem" placeholder="Sua mensagem"></textarea>
+									<div class="validation"></div>
+								</li>
+								<li class="push text-center">
+									<input type="submit" value="Enviar" class="btn btn-primary btn-lg" name="Submit" />
+								</li>
+							</ul>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+	<!-- End contact -->
+	
+	<div class="clearfix"></div>
+		
+	<!-- Start footer -->
+	<footer>
+		<div class="container">
+			<div class="row">
+				<div class="col-md-12">
+					<p>2017 &copy; Copyright <a href="http://sistemasbrasileiros.com.br/">Sistemas Brasileiros.</a> Todos os direitos reservados.</p>
+				</div>
+			</div>
+		</div>	
+	</footer>
+
+	<!-- Start construção do condomínio -->
+	<div id="construcao" class="construcao" hidden>
+		<div id="construcao-card" class="construcao-card" role="dialog" aria-modal="true" aria-labelledby="construcao-titulo" tabindex="-1">
+			<div class="pricing-head">
+				<h4 id="construcao-titulo">Criando seu condom&iacute;nio</h4>
+				<p id="construcao-status" aria-live="polite">Preparando o terreno&hellip;</p>
+			</div>
+			<div class="construcao-palco">
+				<canvas id="construcao-canvas" aria-hidden="true"></canvas>
+				<p class="construcao-nota" id="construcao-nota"></p>
+			</div>
+			<div class="construcao-progresso"><div id="construcao-barra"></div></div>
+			<div class="construcao-numeros">
+				<div><strong id="cn-predios">0</strong><span>pr&eacute;dios</span></div>
+				<div><strong id="cn-apartamentos">0</strong><span>apartamentos</span></div>
+				<div><strong id="cn-portarias">0</strong><span>portarias</span></div>
+				<div><strong id="cn-lojas">0</strong><span>lojas</span></div>
+				<div><strong id="cn-vagas">0</strong><span>vagas</span><small class="construcao-vagas-detalhe" id="cn-vagas-detalhe"></small></div>
+			</div>
+			<div class="pricing-bottom construcao-acoes" id="construcao-acoes" hidden>
+				<button type="button" id="construcao-fechar" class="btn btn-bordered btn-lg" style="color:#404040;border-color:#e2e2e2">Fechar</button>
+				<button type="button" id="construcao-tentar" class="btn btn-primary btn-lg">Tentar de novo</button>
+				<button type="button" id="construcao-json" class="btn btn-primary btn-lg">Ver configura&ccedil;&atilde;o</button>
+			</div>
+		</div>
+	</div>
+	<!-- End construção do condomínio -->
+
+    <script src="js/jquery.js"></script>
+	<script src="js/bootstrap.min.js"></script>
+	<script src="js/construcao-limitada.js"></script>
+	<script src="js/construcao-real.js"></script>
+    <script src="js/jquery-easing-1.3.js"></script>
+
+    <!--[if lt IE 9]>
+      <script src="js/html5shiv.js"></script>
+      <script src="js/respond.min.js"></script>
+    <![endif]-->
+	
+	<script type="text/javascript">
+		  //document.getElementById("loading").className = "loading-visible";
+		  //var hideDiv = function(){document.getElementById("loading").className = "loading-invisible";};
+		  //var oldLoad = window.onload;
+		  //var newLoad = oldLoad ? function(){hideDiv.call(this);oldLoad.call(this);} : hideDiv;
+		  //window.onload = newLoad;
+		  var atual = $('#quantidade');
+		  var qtunit = $('#qtunit');
+		  var vlmensal = $('#vlmensal');
+		  var vlunit = $('#vlunit');
+		  var vlunit2 = $('#vlunit2');
+		  var contratar = $('#contratar');
+		  function calc(){
+                if (atual.val() != atual.val().replace(/[^0-9]+/g, ''))
+                    atual.val(atual.val().replace(/[^0-9]+/g, ''));
+                if (atual.val() > 9999)
+                    atual.val(9999);
+					
+				var qtv = atual.val(); var vl = 0.00;
+                if (atual.val() == '' || atual.val() < 25){
+                    qtv = 25;
+				}
+				
+				var qt = qtv;
+				if (qt > 1500){					
+					vl += (qt - 1500) * 0.4;
+					qt = 1500;
+				}
+				if (qt > 600){					
+					vl += (qt - 600) * 0.6;
+					qt = 600;
+				}
+				if (qt > 300){					
+					vl += (qt - 300) * 0.8;
+					qt = 300;
+				}
+				if (qt > 100){					
+					vl += (qt - 100) * 1;
+					qt = 100;
+				}
+				if (qt > 30){					
+					vl += (qt - 30) * 1.2;
+					qt = 30;
+				}
+				if (qt > 25){					
+					vl += (qt - 25) * 3;
+					qt = 25;
+				}
+				vl += 75;
+				
+				// qtv = atual.val();
+				// if(atual.val() < 1) qtv = 1;
+				var div = vl / qtv;
+				
+				qtunit.text(qtv);
+				vlmensal.text(vl.toFixed(2).replace('.', ','));
+				vlunit.text(div.toFixed(2).replace('.', ','));
+				vlunit2.text(div.toFixed(2).replace('.', ','));
+		  }
+		  //atual.change(function(){
+			//calc();
+		  //});
+		  //atual.keyup(function(){
+			//calc();
+		  //});
+		  atual.on('input', function (j) {
+			calc();
+		  });
+		  contratar.click(function( event ) {
+			  event.preventDefault();
+			  atual.focus().select();
+			  $(window).scrollTop( $("#precosC").offset().top );
+		  });
+		  		  /* Passo 2: configuração do condomínio, no lugar do card de preços */
+		  var unidades = null;
+		  var configform = $('#configform');
+		  function num(id) { return parseInt($('#' + id).val(), 10); }
+
+		  // Troca de card com animação: avança deslizando para a esquerda, volta para a direita
+		  var passoAtual = 1, animando = false;
+		  var ANIMS = 'animated passo-anim fadeOutLeft fadeInRight fadeOutRight fadeInLeft';
+		  function aoTerminarAnimacao(el, fn) {
+			  var feito = false;
+			  function fim() { if (!feito) { feito = true; fn(); } }
+			  el.one('animationend webkitAnimationEnd', fim);
+			  setTimeout(fim, 600); // navegadores sem animationend
+		  }
+		  function mostrarPasso(passo) {
+			  if (passo === passoAtual || animando) return;
+			  var sai = passo === 2 ? $('#passo-precos') : configform;
+			  var entra = passo === 2 ? configform : $('#passo-precos');
+			  passoAtual = passo;
+			  var topo = $("#precosC").offset().top;
+			  if ($(window).scrollTop() > topo) $('html,body').animate({ scrollTop: topo }, 300);
+			  animando = true;
+			  sai.removeClass(ANIMS).addClass('animated passo-anim ' + (passo === 2 ? 'fadeOutLeft' : 'fadeOutRight'));
+			  aoTerminarAnimacao(sai, function () {
+				  sai.hide().removeClass(ANIMS);
+				  entra.removeClass(ANIMS).show().addClass('animated passo-anim ' + (passo === 2 ? 'fadeInRight' : 'fadeInLeft'));
+				  aoTerminarAnimacao(entra, function () {
+					  entra.removeClass(ANIMS);
+					  animando = false;
+				  });
+			  });
+		  }
+
+		  // O total (prédios x apartamentos) precisa bater com as unidades informadas
+		  var CONFERIR_UNIDADES = false; // TODO: temporariamente desligado para testes; voltar para true
+		  function totalConfere() {
+			  if (!CONFERIR_UNIDADES) return true;
+			  return num('predios') * num('apartamentos') === unidades;
+		  }
+		  function atualizarTotal() {
+			  var total = num('predios') * num('apartamentos');
+			  $('#total-predios').text(isNaN(num('predios')) ? '-' : num('predios'));
+			  $('#total-aptos').text(isNaN(num('apartamentos')) ? '-' : num('apartamentos'));
+			  $('#total-apartamentos').text(isNaN(total) ? '-' : total);
+			  $('#total-unidades').text(!CONFERIR_UNIDADES ? '' : (total === unidades ? ' \u2714' : ' de ' + unidades));
+			  var confere = totalConfere();
+			  $('.config-total').toggleClass('config-erro', !confere);
+			  $('#total-aviso').html(confere ? '' :
+				  'Precisa somar as ' + unidades + ' unidades informadas. ' +
+				  'Ajuste os campos ou <a href="#" id="alterar-unidades">altere a quantidade de unidades</a>.');
+		  }
+
+		  $('#proximo').click(function( event ) {
+			  event.preventDefault();
+			  var qt = parseInt(atual.val(), 10);
+			  if (isNaN(qt) || qt < 25) qt = 25;
+			  if (qt !== unidades) {
+				  // Unidades mudaram: volta ao padrão de 1 prédio com todas as unidades
+				  unidades = qt;
+				  $('#predios').val(1);
+				  $('#apartamentos').val(qt);
+			  }
+			  $('#unidades-info').text('Você informou ' + unidades + ' unidades. Ajuste o que for diferente.');
+			  configform.find('.validation').text('');
+			  atualizarTotal();
+			  mostrarPasso(2);
+		  });
+		  $('#voltar').click(function () { mostrarPasso(1); });
+		  configform.on('click', '#alterar-unidades', function (event) {
+			  event.preventDefault();
+			  mostrarPasso(1);
+			  atual.focus().select();
+		  });
+		  // Botão "Contratar" do topo sempre volta ao card de preços
+		  contratar.click(function () {
+			  if (configform.is(':visible')) mostrarPasso(1);
+			  atual.focus().select();
+		  });
+
+		  // Ao mudar a quantidade de prédios, redistribui as unidades entre eles
+		  $('#predios').on('input', function () {
+			  var predios = num('predios');
+			  if (CONFERIR_UNIDADES && predios >= 1) $('#apartamentos').val(Math.max(1, Math.round(unidades / predios)));
+			  atualizarTotal();
+		  });
+		  $('#apartamentos').on('input', atualizarTotal);
+
+		  function validar() {
+			  var ok = true;
+			  configform.find('input[type=number]:visible').each(function () {
+				  var el = $(this), v = el.val(), min = Number(el.data('min')), msg = '';
+				  if (!/^\d+$/.test(v)) msg = 'Só números';
+				  else if (Number(v) < min) msg = 'Mínimo ' + min;
+				  else if (Number(v) > Number(el.attr('max'))) msg = 'Máximo ' + el.attr('max');
+				  el.next('.validation').text(msg);
+				  if (msg && ok) { el.focus(); ok = false; }
+			  });
+			  return ok;
+		  }
+
+		  // Cria a configuração do condomínio.
+		  // TODO: trocar pela chamada real da API, por exemplo:
+		  //   return $.ajax({ url: '/api/configuracoes', method: 'POST', contentType: 'application/json', data: JSON.stringify(config) });
+		  function criarConfiguracao(config) {
+			  return new Promise(function (resolve) {
+				  setTimeout(function () { resolve({ ok: true }); }, 3000);
+			  });
+		  }
+
+		  configform.on('submit', function (event) {
+			  event.preventDefault();
+			  if (!validar()) return;
+			  if (!totalConfere()) {
+				  atualizarTotal();
+				  $('#apartamentos').focus();
+				  return;
+			  }
+			  var config = {
+				  unidades_informadas: unidades,
+				  predios: num('predios'),
+				  andares_por_predio: num('andares'),
+				  apartamentos_por_predio: num('apartamentos'),
+				  total_apartamentos: num('predios') * num('apartamentos'),
+				  lojas: num('lojas'),
+				  vagas: {
+					  cobertas: num('vagas-cobertas'),
+					  descobertas: num('vagas-descobertas'),
+					  visitantes: num('vagas-visitantes'),
+					  numeradas: $('#vagas-numeradas-sim').is(':checked')
+				  },
+				  portarias: num('portarias'),
+				  gerado_em: new Date().toISOString()
+			  };
+			  // Constrói o condomínio na tela enquanto a configuração é criada
+			  var botao = configform.find('button[type=submit]');
+			  // TODO: chave só para testes; escolhe a animação com limite (anterior) ou sem limite (atual)
+			  var animacao = $('#animacao-limitada').is(':checked') ? ConstrucaoCondominioLimitada : ConstrucaoCondominioReal;
+			  animacao.abrir(config, criarConfiguracao, function () { botao.focus(); });
+		  });
+	</script>
+	
+	<!-- Fixed navigation -->
+	<script src="js/navigation/waypoints.min.js"></script>
+	<script src="js/navigation/jquery.smooth-scroll.js"></script>		
+	<script src="js/navigation/navbar.js"></script>	
+	
+	<!-- Wow -->
+	<script src="js/wow/wow.min.js"></script>
+	<script src="js/wow/setting.js"></script>
+	
+	<!-- Parallax -->
+	<script src="js/parallax/jquery.parallax-1.1.3.js"></script>	
+	<script src="js/parallax/setting.js"></script>
+	
+	<!-- flexslider -->
+	<script src="js/flexslider/jquery.flexslider.js"></script>
+	<script src="js/flexslider/setting.js"></script>
+	
+	<!-- prettyPhoto -->
+	<script src="js/prettyPhoto/jquery.prettyPhoto.js"></script>	
+	<script src="js/prettyPhoto/setting.js"></script>
+	
+	<!-- counters -->
+	<script src="js/counters/jquery.appear.js"></script>
+	<script src="js/counters/stellar.js"></script>
+	<script src="js/counters/setting.js"></script>
+
+	<!-- Owl carousel -->
+	<script src="js/owlcarousel/owl.carousel.js"></script>
+    <script src="js/owlcarousel/setting.js"></script>
+	
+	<!-- Totop -->
+	<script src="js/totop/jquery.ui.totop.js"></script>	
+	<script src="js/totop/setting.js"></script>
+
+	<!-- youtube player -->
+	<script src="js/youtube-player/jquery.swfobject.1-1-1.min.js"></script>
+	<script src="js/youtube-player/youTubeEmbed-jquery.js"></script>
+	<script src="js/youtube-player/setting.js"></script>
+		
+	<!-- Contact validation -->
+	<script src="js/validation.js"></script>
+		
+	<!-- Customn javascript -->
+	<script src="js/custom.js"></script>
+
+  </body>
+</html>
