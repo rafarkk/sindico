@@ -179,101 +179,62 @@
 		var galeriaCima = lojasCima * LARG_LOJA, galeriaBaixo = lojasBaixo * LARG_LOJA;
 		var galeriaD = n.lojas ? 2 * Math.max(galeriaCima, galeriaBaixo) + CORREDOR : 0;
 
-		/* --- Estacionamento: cobertas a leste, descobertas e visitantes a oeste --- */
-		function montarLado(qtd) {
-			if (!qtd) return { qtd: 0, largura: 0, meioCima: 0, meioBaixo: 0, porFila: 0, filasCima: 0 };
-			var porFila = Math.max(3, Math.min(20, Math.ceil(Math.sqrt(qtd * 1.5))));
-			var filas = Math.ceil(qtd / porFila);
-			var filasCima = Math.ceil(filas / 2);
-			function alturaFilas(f) { return f ? (f - 1) * SD + Math.floor((f - 1) / 2) * 2.2 + SD : 0; }
-			return {
-				qtd: qtd, porFila: porFila, filasCima: filasCima,
-				largura: Math.min(qtd, porFila) * SW,
-				meioCima: alturaFilas(filasCima),
-				meioBaixo: alturaFilas(filas - filasCima)
-			};
-		}
-		var leste = montarLado(n.cobertas);
-		var oeste = montarLado(n.descobertas + n.visitantes);
-		// A leste ficam a galeria e as vagas cobertas; a oeste, as descobertas e as de visitantes
-		var bandaLeste = (galeriaW ? galeriaW + GAP : 0) + (leste.qtd ? leste.largura + GAP : 0);
-		var bandaOeste = oeste.qtd ? oeste.largura + GAP : 0;
-		var banda = Math.max(bandaLeste, bandaOeste);
+		/* --- Estacionamento: um só, com todas as vagas, no canto sudoeste --- */
+		var totalVagas = n.cobertas + n.descobertas + n.visitantes;
+		var porFila = Math.max(3, Math.min(20, Math.ceil(Math.sqrt(totalVagas * 1.5))));
+		function alturaFilas(f) { return f ? (f - 1) * SD + Math.floor((f - 1) / 2) * 2.2 + SD : 0; }
+		var estacW = totalVagas ? Math.min(totalVagas, porFila) * SW : 0;
+		var estacD = totalVagas ? alturaFilas(Math.ceil(totalVagas / porFila)) : 0;
 
-		var meiaAltura = Math.max(regiaoD / 2, galeriaD / 2,
-			leste.meioCima + CORREDOR / 2, leste.meioBaixo + CORREDOR / 2,
-			oeste.meioCima + CORREDOR / 2, oeste.meioBaixo + CORREDOR / 2);
-		var loteD = 2 * (BORDA + meiaAltura);
-		var loteW = regiaoW + 2 * (BORDA + banda);
+		/* --- Terreno: prédios ao norte, estacionamento logo ao sul deles, galeria a leste --- */
+		var mioloW = Math.max(regiaoW, estacW);
+		var x0 = BORDA + (mioloW - regiaoW) / 2;
+		var y0 = BORDA + Math.max(0, (galeriaD - regiaoD) / 2);
+		var xEstac = BORDA + (mioloW - estacW) / 2;
+		var yEstac = y0 + regiaoD + GAP;
+		var xGaleria = BORDA + mioloW + GAP;
+		var cyBloco = y0 + regiaoD / 2;  // linha do meio dos prédios, onde os caminhos chegam
+		var cyEstac = yEstac + estacD / 2;
+		var loteW = (n.lojas ? xGaleria + galeriaW : BORDA + mioloW) + BORDA;
+		var loteD = Math.max(totalVagas ? yEstac + estacD : 0, cyBloco + galeriaD / 2, y0 + regiaoD) + BORDA;
 		var cx = loteW / 2, cy = loteD / 2;
-		var x0 = cx - regiaoW / 2, y0 = cy - regiaoD / 2;
-		var xGaleria = x0 + regiaoW + GAP;
-		var xLeste = x0 + regiaoW + GAP + (galeriaW ? galeriaW + GAP : 0);
-		var xOeste = x0 - GAP - oeste.largura;
 
-		// Posição de cada vaga: metade acima e metade abaixo do corredor central
-		function vagaPos(lado, i, xBase) {
-			var fila = Math.floor(i / lado.porFila), col = i % lado.porFila;
-			var x = xBase + col * SW, y;
-			if (fila < lado.filasCima) {
-				var r = lado.filasCima - 1 - fila;
-				y = cy - CORREDOR / 2 - (r * SD + Math.floor(r / 2) * 2.2) - SD;
-			} else {
-				var b = fila - lado.filasCima;
-				y = cy + CORREDOR / 2 + b * SD + Math.floor(b / 2) * 2.2;
-			}
-			return { x: x, y: y };
+		function vagaPos(i) {
+			var fila = Math.floor(i / porFila), col = i % porFila;
+			return { x: xEstac + col * SW, y: yEstac + fila * SD + Math.floor(fila / 2) * 2.2 };
 		}
 
 		/* --- Portarias: uma em cada direção (sul, norte, leste, oeste) --- */
 		var LADOS = ['S', 'N', 'L', 'O'];
-		// Com uma portaria só, ela fica na entrada do estacionamento (se houver vaga)
-		var portariasLados = (n.portarias === 1 && (leste.qtd || oeste.qtd))
-			? [leste.qtd ? 'L' : 'O']
-			: LADOS.slice(0, n.portarias);
+		var portariasLados = LADOS.slice(0, n.portarias);
 		function temLado(l) { return portariasLados.indexOf(l) >= 0; }
 		/*
-		 * Onde o lado tem estacionamento, a portaria fica na entrada de carro (no asfalto).
-		 * Onde não tem, ela sai da linha dos prédios, senão as torres a escondem.
+		 * A do sul fica na entrada do estacionamento quando há vagas (é a primeira a existir).
+		 * A do norte acompanha a lateral dos prédios, senão as torres a escondem.
 		 */
 		function posPortaria(lado) {
-			if (lado === 'S') return { x: cx - 1.1, y: loteD - CALCADA - 3.0 };
-			// A do norte fica na prumada da lateral dos prédios, para o caminho dela seguir a calçada da frente
-			if (lado === 'N') return { x: Math.min(x0 + regiaoW - 1.1, loteW - CALCADA - 3.0), y: CALCADA + 0.6 };
-			if (lado === 'L') return { x: loteW - CALCADA - 3.0, y: cy - 1.1 };
-			if (oeste.qtd) return { x: CALCADA + 0.6, y: cy - 1.1 };
-			return { x: CALCADA + 0.6, y: Math.min(y0 + regiaoD + 0.6, loteD - CALCADA - 3.0) };
+			if (lado === 'S') return { x: (totalVagas ? xEstac + estacW / 2 : x0 + regiaoW / 2) - 1.1, y: loteD - CALCADA - 3.0 };
+			if (lado === 'N') return { x: x0 + regiaoW - 1.6, y: CALCADA + 0.6 };
+			if (lado === 'L') return { x: loteW - CALCADA - 3.0, y: cyBloco - 1.1 };
+			return { x: CALCADA + 0.6, y: (totalVagas ? cyEstac : cyBloco) - 1.1 };
 		}
 
 		// Caminhos de pedestre (claros) e entradas de carro (asfalto).
 		// Servem também para manter as árvores longe.
 		var caminhos = [], entradas = [];
-		if (temLado('S')) caminhos.push({ x: cx - 0.8, y: y0 + regiaoD, w: 1.6, d: loteD - CALCADA - (y0 + regiaoD) });
+		if (temLado('S')) {
+			if (totalVagas) entradas.push({ x: xEstac + estacW / 2 - 1.2, y: yEstac + estacD, w: 2.4, d: loteD - CALCADA - (yEstac + estacD) });
+			else caminhos.push({ x: x0 + regiaoW / 2 - 0.8, y: y0 + regiaoD, w: 1.6, d: loteD - CALCADA - (y0 + regiaoD) });
+		}
 		if (temLado('N')) caminhos.push({ x: posPortaria('N').x - 0.1, y: CALCADA, w: 2.4, d: (y0 - 1) - CALCADA });
-		if (temLado('L')) {
-			caminhos.push({ x: x0 + regiaoW, y: cy - 0.8, d: 1.6,
-				w: (leste.qtd ? xLeste - 0.5 : loteW - CALCADA) - (x0 + regiaoW) });
-		}
+		if (temLado('L')) caminhos.push({ x: x0 + regiaoW, y: cyBloco - 0.8, w: loteW - CALCADA - (x0 + regiaoW), d: 1.6 });
 		if (temLado('O')) {
-			if (oeste.qtd) {
-				caminhos.push({ x: xOeste + oeste.largura + 0.5, y: cy - 0.8, d: 1.6,
-					w: (x0 - 1) - (xOeste + oeste.largura + 0.5) });
-			} else {
-				caminhos.push({ x: CALCADA, y: posPortaria('O').y - 0.1, w: (x0 - 1) - CALCADA, d: 2.4 });
-			}
+			if (totalVagas) entradas.push({ x: CALCADA, y: cyEstac - 1.2, w: (xEstac - 0.5) - CALCADA, d: 2.4 });
+			else caminhos.push({ x: CALCADA, y: cyBloco - 0.8, w: (x0 - 1) - CALCADA, d: 1.6 });
 		}
-		// A entrada de carro só existe onde há portaria para entrar
-		if (leste.qtd && temLado('L')) entradas.push({ x: xLeste + leste.largura + 0.5, y: cy - 1.2, d: 2.4,
-			w: loteW - CALCADA - (xLeste + leste.largura + 0.5) });
-		if (oeste.qtd && temLado('O')) entradas.push({ x: CALCADA, y: cy - 1.2, w: (xOeste - 0.5) - CALCADA, d: 2.4 });
-
-		// Com estacionamento dos dois lados, uma via interna liga os dois por trás dos prédios
-		if (leste.qtd && oeste.qtd) {
-			var yVia = y0 - 3.4;
-			var faixaO = xOeste + oeste.largura + 0.3, faixaL = xLeste - 2.7;
-			entradas.push({ x: faixaO, y: yVia, w: 2.4, d: (cy + 1.2) - yVia });
-			entradas.push({ x: faixaL, y: yVia, w: 2.4, d: (cy + 1.2) - yVia });
-			entradas.push({ x: faixaO, y: yVia, w: faixaL + 2.4 - faixaO, d: 2.4 });
+		// Ligação a pé entre o estacionamento e a praça dos prédios
+		if (totalVagas) {
+			caminhos.push({ x: xEstac + estacW / 2 - 0.8, y: y0 + regiaoD, w: 1.6, d: yEstac - (y0 + regiaoD) });
 		}
 		// A rua do sul existe sempre; as outras só onde há portaria
 		function temRua(l) { return l === 'S' || temLado(l); }
@@ -288,7 +249,6 @@
 		var passoLoja = n.lojas ? Math.min(220, 1800 / n.lojas) : 0;
 		var fimPredios = tPred + (n.predios - 1) * passoPredio + (n.andares + 1) * passoAndar + 350;
 		var fimLojas = n.lojas ? tLoja + 450 + n.lojas * passoLoja + 300 : 0;
-		var totalVagas = n.cobertas + n.descobertas + n.visitantes;
 		var tVaga = Math.max(fimPredios, fimLojas) - 600;
 		var passoVaga = totalVagas ? Math.min(90, 2500 / totalVagas) : 0;
 		var fim = Math.max(fimPredios + 800, fimLojas, tVaga + totalVagas * passoVaga + (totalVagas ? 800 : 0)) + 200;
@@ -331,14 +291,7 @@
 				caminhos.forEach(function (c) { P.chao(c.x, c.y, c.w, c.d, COR.praca); });
 
 				// Asfalto do estacionamento e saída para a rua
-				if (leste.qtd) {
-					P.chao(xLeste - 0.5, cy - leste.meioCima - CORREDOR / 2 - 0.5,
-						leste.largura + 1, leste.meioCima + leste.meioBaixo + CORREDOR + 1, COR.asfalto);
-				}
-				if (oeste.qtd) {
-					P.chao(xOeste - 0.5, cy - oeste.meioCima - CORREDOR / 2 - 0.5,
-						oeste.largura + 1, oeste.meioCima + oeste.meioBaixo + CORREDOR + 1, COR.asfalto);
-				}
+				if (totalVagas) P.chao(xEstac - 0.5, yEstac - 0.5, estacW + 1, estacD + 1, COR.asfalto);
 				entradas.forEach(function (e) { P.chao(e.x, e.y, e.w, e.d, COR.asfalto); });
 
 				if (temRua('S')) {
@@ -369,10 +322,9 @@
 			var livre = !noCaminho &&
 				(ax < x0 - 1.5 || ax > x0 + regiaoW + 1.5 || ay < y0 - 1.5 || ay > y0 + regiaoD + 1.5) &&
 				(!n.lojas || ax < xGaleria - 1.5 || ax > xGaleria + galeriaW + 1.5 ||
-					ay < cy - galeriaD / 2 - 1.5 || ay > cy + galeriaD / 2 + 1.5) &&
-				(!leste.qtd || ax < xLeste - 1.5 || ax > xLeste + leste.largura + 1.5) &&
-				(!oeste.qtd || ax < xOeste - 1.5 || ax > xOeste + oeste.largura + 1.5) &&
-				Math.abs(ax - cx) > 1.8 && Math.abs(ay - cy) > 2.6;
+					ay < cyBloco - galeriaD / 2 - 1.5 || ay > cyBloco + galeriaD / 2 + 1.5) &&
+				(!totalVagas || ax < xEstac - 1.5 || ax > xEstac + estacW + 1.5 ||
+					ay < yEstac - 1.5 || ay > yEstac + estacD + 1.5);
 			if (livre) arvores.push([ax, ay]);
 		}
 		arvores.forEach(function (a, i) {
@@ -434,8 +386,8 @@
 		var lojasFeitas = [];
 		if (n.lojas) {
 			for (var jl = 0; jl < n.lojas; jl++) lojasFeitas.push(tLoja + 450 + jl * passoLoja + 300);
-			[{ qtd: lojasCima, de: 0, y: cy - CORREDOR / 2 - galeriaCima },
-			 { qtd: lojasBaixo, de: lojasCima, y: cy + CORREDOR / 2 }].forEach(function (bloco) {
+			[{ qtd: lojasCima, de: 0, y: cyBloco - CORREDOR / 2 - galeriaCima },
+			 { qtd: lojasBaixo, de: lojasCima, y: cyBloco + CORREDOR / 2 }].forEach(function (bloco) {
 				if (!bloco.qtd) return;
 				var altura = bloco.qtd * LARG_LOJA;
 				solidos.push({
@@ -590,15 +542,8 @@
 		var numeroVaga = 0, numeroVisitante = 0;
 		for (var iv = 0; iv < totalVagas; iv++) {
 			(function (i) {
-				var tipo, pos;
-				if (i < n.cobertas) {
-					tipo = 'coberta';
-					pos = vagaPos(leste, i, xLeste);
-				} else {
-					tipo = i < n.cobertas + n.descobertas ? 'descoberta' : 'visitante';
-					pos = vagaPos(oeste, i - n.cobertas, xOeste);
-				}
-				var x = pos.x, y = pos.y;
+				var tipo = i < n.cobertas ? 'coberta' : (i < n.cobertas + n.descobertas ? 'descoberta' : 'visitante');
+				var pos = vagaPos(i), x = pos.x, y = pos.y;
 				var inicio = tVaga + i * passoVaga;
 				var rotulo = tipo === 'visitante'
 					? 'V' + (cfg.vagas.numeradas ? ++numeroVisitante : '')
