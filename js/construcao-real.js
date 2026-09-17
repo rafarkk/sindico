@@ -2,20 +2,27 @@
  * Animação isométrica que "constrói" o condomínio configurado
  * enquanto a configuração é criada (ConstrucaoCondominioReal.abrir).
  * Versão SEM LIMITE: desenha as quantidades reais (limites só de segurança, bem altos).
+ *
+ * Disposição: prédios no centro do terreno, portarias distribuídas nas quatro direções
+ * (sul, norte, leste e oeste), lojas no térreo dos prédios e estacionamento nas laterais.
  */
 (function (window, $) {
 	'use strict';
 
 	var COS = Math.cos(Math.PI / 6), SIN = 0.5;
 
-	// Limites só de segurança: a ilustração desenha as quantidades reais até estes números
-	var LIMITE = { predios: 400, andares: 200, lojas: 1000, portarias: 100, cobertas: 10000, descobertas: 10000, visitantes: 5000 };
+	// Limites só de segurança; o formulário já limita bem abaixo disso
+	var LIMITE = { predios: 60, andares: 80, lojas: 80, portarias: 4, cobertas: 400, descobertas: 400, visitantes: 200 };
 
 	// Medidas em "metros" do mundo isométrico
-	var BW = 4, BD = 4, GAP = 3, FH = 0.9, MARGEM = 2;
+	var BW = 4, BD = 4, GAP = 3, FH = 0.9;
 	var SW = 1.3, SD = 2.6;
+	var CORREDOR = 3;      // corredor central do estacionamento, alinhado com o caminho das portarias
+	var BORDA = 5.6;       // faixa entre o miolo do terreno e a rua (calçada + portaria)
+	var CALCADA = 1.2;
+	var LARG_LOJA = 1.5;   // largura mínima de cada vitrine
 	var DUR_NIVEL = 320;
-	var MAX_ARVORES = 200;
+	var MAX_ARVORES = 60;
 
 	var COR = {
 		lote: ['#cde6c4', '#a9cb9e', '#94b98a'],
@@ -26,18 +33,19 @@
 		asfalto: '#9aa1a8',
 		linhaVaga: '#ffffff',
 		predio: ['#f7f9fa', '#e6ecef', '#c9d4da'],
+		podio: ['#f7f4ee', '#efe7da', '#ddd2bf'],
 		faixaAndar: ['#bcc8cf', '#a9b7bf'],
 		laje: ['#5a6068', '#474c53', '#3a3f45'],
 		caixaDagua: ['#eef1f3', '#d5dde2', '#b9c4cb'],
 		vidro: '#8fb0c0',
 		luz: '#ffd36b',
 		porta: '#319DB5',
-		loja: ['#f4e3c6', '#e9d3ad', '#d8bd90'],
 		toldo: '#319DB5',
 		portaria: ['#ffffff', '#eef1f3', '#d5dde2'],
 		cobertura: ['#6cc0d2', '#319DB5', '#27819a'],
 		guindaste: ['#ffd24a', '#f2b705', '#c99400'],
 		cabo: '#353940',
+		visitante: '#3d7fc4',
 		tronco: ['#9c7a57', '#8a6a4a', '#765a3e'],
 		copa: ['#7cbf6b', '#62a954'],
 		carros: ['#e05a47', '#3b6fb6', '#f0c24b', '#5b6770', '#f4f4f4', '#2f9e6f']
@@ -65,7 +73,6 @@
 		this.S = 10; this.ox = 0; this.oy = 0; this.dpr = 1;
 		this.versao = 0; // muda a cada reenquadramento, invalidando as imagens guardadas
 	}
-	// Mesmo enquadramento, desenhando em outro contexto
 	Pintor.prototype.clonar = function (ctx) {
 		var q = Object.create(Pintor.prototype);
 		q.canvas = ctx.canvas; q.ctx = ctx;
@@ -85,7 +92,6 @@
 		c.fillStyle = cor;
 		c.fill();
 	};
-	// Retângulo horizontal na altura z
 	Pintor.prototype.chao = function (x, y, w, d, cor, z) {
 		z = z || 0;
 		this.poli([this.p(x, y, z), this.p(x + w, y, z), this.p(x + w, y + d, z), this.p(x, y + d, z)], cor);
@@ -96,14 +102,12 @@
 		this.poli([this.p(x + w, y + d, z), this.p(x + w, y, z), this.p(x + w, y, z + h), this.p(x + w, y + d, z + h)], cores[2]);
 		this.poli([this.p(x, y, z + h), this.p(x + w, y, z + h), this.p(x + w, y + d, z + h), this.p(x, y + d, z + h)], cores[0]);
 	};
-	// Retângulos desenhados sobre as faces verticais
 	Pintor.prototype.faceY = function (yp, x1, x2, z1, z2, cor) {
 		this.poli([this.p(x1, yp, z1), this.p(x2, yp, z1), this.p(x2, yp, z2), this.p(x1, yp, z2)], cor);
 	};
 	Pintor.prototype.faceX = function (xp, y1, y2, z1, z2, cor) {
 		this.poli([this.p(xp, y1, z1), this.p(xp, y2, z1), this.p(xp, y2, z2), this.p(xp, y1, z2)], cor);
 	};
-	// Texto "pintado" no chão
 	Pintor.prototype.textoChao = function (txt, x, y, tam, cor) {
 		var c = this.ctx, d = this.dpr, S = this.S;
 		c.save();
@@ -161,89 +165,172 @@
 			cfg.vagas.cobertas > n.cobertas || cfg.vagas.descobertas > n.descobertas || cfg.vagas.visitantes > n.visitantes;
 
 		var rnd = aleatorio(cfg.predios * 131 + cfg.andares_por_predio * 17 + cfg.vagas.cobertas + 7);
-		// Ordem de desenho: chão -> fundo (árvores e prédios) -> estacionamento -> frente (portarias e lojas).
-		// Nessa disposição o estacionamento sempre fica na frente dos prédios e atrás da faixa da rua.
-		var chao = [], fundo = [], unidadesVaga = [], frente = [], fases = [];
+		var chao = [], solidos = [], fases = [];
 
-		// Prédios em grade
-		var cols = Math.max(1, Math.ceil(Math.sqrt(n.predios))), rows = Math.max(1, Math.ceil(n.predios / cols));
-		var x0 = MARGEM, y0 = MARGEM;
-		var regiaoW = cols * (BW + GAP) - GAP, regiaoD = rows * (BD + GAP) - GAP;
-
-		// Estacionamento à direita dos prédios
-		var totalVagas = n.cobertas + n.descobertas + n.visitantes;
-		var porFila = Math.max(3, Math.min(200, Math.ceil(Math.sqrt(totalVagas * 1.5))));
-		var px0 = x0 + regiaoW + 3, py0 = y0;
-		function vagaPos(i) {
-			var r = Math.floor(i / porFila);
-			return { x: px0 + (i % porFila) * SW, y: py0 + r * SD + Math.floor(r / 2) * 2.2 };
+		/* --- Lojas: viram o térreo dos prédios, num pódio em volta da torre --- */
+		var lojasPorPredio = [];
+		for (var lp = 0; lp < n.predios; lp++) {
+			lojasPorPredio.push(Math.floor(n.lojas / n.predios) + (lp < n.lojas % n.predios ? 1 : 0));
 		}
-		var parkW = totalVagas ? Math.min(totalVagas, porFila) * SW : 0;
-		var parkEnd = totalVagas ? vagaPos(totalVagas - 1).y + SD : py0;
+		var maiorLoja = lojasPorPredio.length ? Math.max.apply(null, lojasPorPredio) : 0;
+		// O pódio cresce até caber uma vitrine de LARG_LOJA em cada trecho das duas faces à vista
+		var PD = maiorLoja ? Math.max(1.5, (LARG_LOJA * maiorLoja - (BW + BD)) / 2) : 0;
 
-		// Faixa da frente, voltada para a rua: portarias e lojas em fileiras
-		var portPorFila = Math.max(4, Math.ceil(Math.sqrt(n.portarias * 2)));
-		var lojaPorFila = Math.max(8, Math.ceil(Math.sqrt(n.lojas * 4)));
-		var xLojas = MARGEM + Math.min(n.portarias, portPorFila) * 4.8 + (n.portarias ? 0.6 : 0);
-		var fimFaixa = xLojas + Math.min(n.lojas, lojaPorFila) * 3.0;
-		var profFaixa = Math.max(Math.ceil(n.portarias / portPorFila) * 3.0, Math.ceil(n.lojas / lojaPorFila) * 3.2, 2.2);
-		var yF = Math.max(y0 + regiaoD + 2, totalVagas ? parkEnd + 2.6 : 0);
-		var loteW = Math.max(x0 + regiaoW, totalVagas ? px0 + parkW : 0, fimFaixa + (totalVagas ? 3.2 : 0)) + MARGEM;
-		var loteD = yF + profFaixa + 1.8;
+		/* --- Prédios no centro --- */
+		var cols = Math.max(1, Math.ceil(Math.sqrt(n.predios))), linhas = Math.max(1, Math.ceil(n.predios / cols));
+		var celula = BW + PD + GAP;
+		var regiaoW = cols * celula - GAP, regiaoD = linhas * celula - GAP;
 
-		/* Linha do tempo (os passos encurtam quando há muitas peças) */
+		/* --- Estacionamento: cobertas a leste, descobertas e visitantes a oeste --- */
+		function montarLado(qtd) {
+			if (!qtd) return { qtd: 0, largura: 0, meioCima: 0, meioBaixo: 0, porFila: 0, filasCima: 0 };
+			var porFila = Math.max(3, Math.min(20, Math.ceil(Math.sqrt(qtd * 1.5))));
+			var filas = Math.ceil(qtd / porFila);
+			var filasCima = Math.ceil(filas / 2);
+			function alturaFilas(f) { return f ? (f - 1) * SD + Math.floor((f - 1) / 2) * 2.2 + SD : 0; }
+			return {
+				qtd: qtd, porFila: porFila, filasCima: filasCima,
+				largura: Math.min(qtd, porFila) * SW,
+				meioCima: alturaFilas(filasCima),
+				meioBaixo: alturaFilas(filas - filasCima)
+			};
+		}
+		var leste = montarLado(n.cobertas);
+		var oeste = montarLado(n.descobertas + n.visitantes);
+		var larguraLado = Math.max(leste.largura, oeste.largura);
+
+		var meiaAltura = Math.max(regiaoD / 2,
+			leste.meioCima + CORREDOR / 2, leste.meioBaixo + CORREDOR / 2,
+			oeste.meioCima + CORREDOR / 2, oeste.meioBaixo + CORREDOR / 2);
+		var loteD = 2 * (BORDA + meiaAltura);
+		var loteW = regiaoW + 2 * (BORDA + (larguraLado ? larguraLado + GAP : 0));
+		var cx = loteW / 2, cy = loteD / 2;
+		var x0 = cx - regiaoW / 2, y0 = cy - regiaoD / 2;
+		var xLeste = x0 + regiaoW + GAP, xOeste = x0 - GAP - oeste.largura;
+
+		// Posição de cada vaga: metade acima e metade abaixo do corredor central
+		function vagaPos(lado, i, xBase) {
+			var fila = Math.floor(i / lado.porFila), col = i % lado.porFila;
+			var x = xBase + col * SW, y;
+			if (fila < lado.filasCima) {
+				var r = lado.filasCima - 1 - fila;
+				y = cy - CORREDOR / 2 - (r * SD + Math.floor(r / 2) * 2.2) - SD;
+			} else {
+				var b = fila - lado.filasCima;
+				y = cy + CORREDOR / 2 + b * SD + Math.floor(b / 2) * 2.2;
+			}
+			return { x: x, y: y };
+		}
+
+		/* --- Portarias: uma em cada direção (sul, norte, leste, oeste) --- */
+		var LADOS = ['S', 'N', 'L', 'O'];
+		var portariasLados = LADOS.slice(0, n.portarias);
+		function temLado(l) { return portariasLados.indexOf(l) >= 0; }
+		function posPortaria(lado) {
+			if (lado === 'S') return { x: cx - 1.1, y: loteD - CALCADA - 3.0 };
+			if (lado === 'N') return { x: cx - 1.1, y: CALCADA + 0.6 };
+			if (lado === 'L') return { x: loteW - CALCADA - 3.0, y: cy - 1.1 };
+			return { x: CALCADA + 0.6, y: cy - 1.1 };
+		}
+		// A rua do sul existe sempre; as outras só onde há portaria
+		function temRua(l) { return l === 'S' || temLado(l); }
+
+		/* --- Linha do tempo --- */
 		var tPort = 600;
 		var passoPort = n.portarias ? Math.min(250, 1500 / n.portarias) : 0;
 		var tPred = tPort + n.portarias * passoPort + 200;
 		var passoPredio = n.predios > 1 ? Math.min(600, 3000 / n.predios) : 0;
 		var passoAndar = Math.min(260, 3200 / (n.andares + 1));
+		var passoLoja = maiorLoja ? Math.min(220, 1600 / maiorLoja) : 0;
 		var fimPredios = tPred + (n.predios - 1) * passoPredio + (n.andares + 1) * passoAndar + 350;
-		var passoLoja = n.lojas ? Math.min(220, 1500 / n.lojas) : 0;
-		var tLoja = Math.max(tPred + 400, fimPredios - 800);
-		var tVaga = tLoja + Math.max(n.lojas * passoLoja, 220);
+		var fimLojas = maiorLoja ? tPred + (n.predios - 1) * passoPredio + DUR_NIVEL + maiorLoja * passoLoja + 300 : 0;
+		var totalVagas = n.cobertas + n.descobertas + n.visitantes;
+		var tVaga = Math.max(fimPredios, fimLojas) - 600;
 		var passoVaga = totalVagas ? Math.min(90, 2500 / totalVagas) : 0;
-		var fim = Math.max(fimPredios + 800, tVaga + 500, tVaga + totalVagas * passoVaga + (totalVagas ? 800 : 0)) + 200;
+		var fim = Math.max(fimPredios + 800, fimLojas, tVaga + totalVagas * passoVaga + (totalVagas ? 800 : 0)) + 200;
 
 		fases.push({ inicio: 0, texto: 'Preparando o terreno' });
 		if (n.portarias) fases.push({ inicio: tPort, texto: n.portarias > 1 ? 'Instalando as portarias' : 'Instalando a portaria' });
 		fases.push({ inicio: tPred, texto: n.predios > 1 ? 'Construindo os prédios' : 'Construindo o prédio' });
-		if (n.lojas) fases.push({ inicio: tLoja, texto: 'Abrindo as lojas' });
+		if (n.lojas) fases.push({ inicio: tPred + DUR_NIVEL, texto: 'Abrindo as lojas' });
 		if (totalVagas) fases.push({ inicio: tVaga, texto: 'Demarcando as vagas' });
 
-		/* Terreno, rua, calçada, praça e asfalto */
+		/* --- Terreno, ruas, calçadas, caminhos e asfalto --- */
 		chao.push({
 			fim: 700,
 			desenhar: function (P, t) {
 				var p = suave(t / 700);
 				if (p <= 0) return;
-				var c = P.ctx;
+				var c = P.ctx, i;
 				c.globalAlpha = p;
+
+				// Ruas do fundo primeiro (norte e oeste), depois o terreno, e por fim as da frente
+				if (temRua('N')) {
+					P.caixa(-3.4, -3.4, -0.4, loteW + 6.8, 3.4, 0.4, COR.rua);
+					for (i = 0; i < loteW; i += 2) P.chao(i, -1.8, 1, 0.16, COR.faixa);
+				}
+				if (temRua('O')) {
+					P.caixa(-3.4, 0, -0.4, 3.4, loteD, 0.4, COR.rua);
+					for (i = 0; i < loteD; i += 2) P.chao(-1.8, i, 0.16, 1, COR.faixa);
+				}
+
 				P.caixa(0, 0, -0.4, loteW, loteD, 0.4, COR.lote);
-				P.caixa(-2, loteD, -0.4, loteW + 4, 3.2, 0.4, COR.rua);
-				for (var xx = -1.5; xx < loteW + 1.5; xx += 2) P.chao(xx, loteD + 1.5, 1, 0.16, COR.faixa);
-				P.chao(0, loteD - 1.2, loteW, 1.2, COR.calcada);
+
+				// Calçada em cada lado que tem rua
+				if (temRua('N')) P.chao(0, 0, loteW, CALCADA, COR.calcada);
+				if (temRua('S')) P.chao(0, loteD - CALCADA, loteW, CALCADA, COR.calcada);
+				if (temRua('O')) P.chao(0, 0, CALCADA, loteD, COR.calcada);
+				if (temRua('L')) P.chao(loteW - CALCADA, 0, CALCADA, loteD, COR.calcada);
+
+				// Praça sob os prédios e caminho de cada portaria até ela
 				P.chao(x0 - 1, y0 - 1, regiaoW + 2, regiaoD + 2, COR.praca);
-				if (totalVagas) {
-					P.chao(px0 - 0.5, py0 - 0.5, parkW + 1, parkEnd - py0 + 1, COR.asfalto);
-					P.chao(px0 - 0.5, parkEnd + 0.5, loteW - MARGEM - (px0 - 0.5), 1.6, COR.asfalto);
-					P.chao(loteW - MARGEM - 2.6, parkEnd + 0.5, 2.6, loteD - 1.2 - (parkEnd + 0.5), COR.asfalto);
+				if (temLado('S')) P.chao(cx - 0.8, y0 + regiaoD, 1.6, loteD - CALCADA - (y0 + regiaoD), COR.praca);
+				if (temLado('N')) P.chao(cx - 0.8, CALCADA, 1.6, y0 - CALCADA, COR.praca);
+				if (temLado('L')) P.chao(x0 + regiaoW, cy - 0.8, loteW - CALCADA - (x0 + regiaoW), 1.6, COR.praca);
+				if (temLado('O')) P.chao(CALCADA, cy - 0.8, x0 - CALCADA, 1.6, COR.praca);
+
+				// Asfalto do estacionamento e saída para a rua
+				if (leste.qtd) {
+					P.chao(xLeste - 0.5, cy - leste.meioCima - CORREDOR / 2 - 0.5,
+						leste.largura + 1, leste.meioCima + leste.meioBaixo + CORREDOR + 1, COR.asfalto);
+					P.chao(xLeste + leste.largura + 0.5, cy - 1.2, loteW - CALCADA - (xLeste + leste.largura + 0.5), 2.4, COR.asfalto);
+				}
+				if (oeste.qtd) {
+					P.chao(xOeste - 0.5, cy - oeste.meioCima - CORREDOR / 2 - 0.5,
+						oeste.largura + 1, oeste.meioCima + oeste.meioBaixo + CORREDOR + 1, COR.asfalto);
+					P.chao(CALCADA, cy - 1.2, xOeste - 0.5 - CALCADA, 2.4, COR.asfalto);
+				}
+
+				if (temRua('S')) {
+					P.caixa(-3.4, loteD, -0.4, loteW + 6.8, 3.4, 0.4, COR.rua);
+					for (i = 0; i < loteW; i += 2) P.chao(i, loteD + 1.6, 1, 0.16, COR.faixa);
+				}
+				if (temRua('L')) {
+					P.caixa(loteW, 0, -0.4, 3.4, loteD, 0.4, COR.rua);
+					for (i = 0; i < loteD; i += 2) P.chao(loteW + 1.6, i, 0.16, 1, COR.faixa);
 				}
 				c.globalAlpha = 1;
 			}
 		});
 
-		/* Árvores */
-		var arvores = [[0.9, 0.9], [loteW - 0.9, 0.9], [0.9, loteD - 2.2]];
-		if (n.predios) arvores.push([px0 - 1.5, y0 + 0.9]);
-		// Preenche o gramado entre os prédios e a faixa da frente
-		for (var ay = y0 + regiaoD + 1.6; ay < yF - 1.2 && arvores.length < MAX_ARVORES; ay += 2.4) {
-			for (var ax = x0 + 0.8; ax < x0 + regiaoW + 1 && arvores.length < MAX_ARVORES; ax += 2.6) {
-				if (rnd() < 0.6) arvores.push([ax + rnd() * 0.6, ay + rnd() * 0.6]);
-			}
+		/* --- Árvores nos cantos livres --- */
+		var arvores = [];
+		[[BORDA / 2, BORDA / 2], [loteW - BORDA / 2, BORDA / 2], [BORDA / 2, loteD - BORDA / 2], [loteW - BORDA / 2, loteD - BORDA / 2]]
+			.forEach(function (a) { arvores.push(a); });
+		var tentativas = 0;
+		while (arvores.length < MAX_ARVORES && tentativas < 400) {
+			tentativas++;
+			var ax = CALCADA + 0.8 + rnd() * (loteW - 2 * CALCADA - 1.6);
+			var ay = CALCADA + 0.8 + rnd() * (loteD - 2 * CALCADA - 1.6);
+			var livre = (ax < x0 - 1.5 || ax > x0 + regiaoW + 1.5 || ay < y0 - 1.5 || ay > y0 + regiaoD + 1.5) &&
+				(!leste.qtd || ax < xLeste - 1.5 || ax > xLeste + leste.largura + 1.5) &&
+				(!oeste.qtd || ax < xOeste - 1.5 || ax > xOeste + oeste.largura + 1.5) &&
+				Math.abs(ax - cx) > 1.8 && Math.abs(ay - cy) > 1.8;
+			if (livre) arvores.push([ax, ay]);
 		}
 		arvores.forEach(function (a, i) {
 			var inicio = 300 + Math.min(i, 12) * 90;
-			fundo.push({
+			solidos.push({
 				chave: a[0] + a[1],
 				fim: inicio + 500,
 				caixa: [a[0] - 0.8, a[1] - 0.8, 0, a[0] + 0.8, a[1] + 0.8, 2.2],
@@ -260,46 +347,83 @@
 			});
 		});
 
-		/* Portarias (com cancela) */
+		/* --- Portarias, com a cancela voltada para a rua de cada lado --- */
 		var portariasFeitas = [];
-		for (var ip = 0; ip < n.portarias; ip++) {
-			(function (i) {
-				var x = MARGEM + (i % portPorFila) * 4.8, y = yF + Math.floor(i / portPorFila) * 3.0;
-				var inicio = tPort + i * passoPort;
-				portariasFeitas.push(inicio + 450);
-				frente.push({
-					chave: x + 1.1 + y + 1.1,
-					fim: inicio + 450,
-					caixa: [x - 0.2, y - 0.2, 0, x + 4.5, y + 2.4, 1.5],
-					desenhar: function (P, t) {
-						var p = suave((t - inicio) / 450);
-						if (p <= 0) return;
-						var z = (1 - p) * 3;
-						P.ctx.globalAlpha = p;
-						P.caixa(x, y, z, 2.2, 2.2, 1.3, COR.portaria);
-						P.faceY(y + 2.2, x + 0.35, x + 1.85, z + 0.55, z + 1.05, COR.vidro);
-						P.faceX(x + 2.2, y + 0.4, y + 1.1, z, z + 1.0, COR.porta);
-						P.caixa(x - 0.2, y - 0.2, z + 1.3, 2.6, 2.6, 0.16, COR.laje);
-						// cancela
+		portariasLados.forEach(function (lado, i) {
+			var pos = posPortaria(lado), x = pos.x, y = pos.y;
+			var inicio = tPort + i * passoPort;
+			var deitada = lado === 'S' || lado === 'N'; // cancela ao longo do eixo x
+			portariasFeitas.push(inicio + 450);
+			solidos.push({
+				chave: x + 1.1 + y + 1.1,
+				fim: inicio + 450,
+				caixa: [x - 0.2, y - 0.2, 0, x + (deitada ? 4.5 : 2.4), y + (deitada ? 2.4 : 4.5), 1.5],
+				desenhar: function (P, t) {
+					var p = suave((t - inicio) / 450);
+					if (p <= 0) return;
+					var z = (1 - p) * 3, s;
+					P.ctx.globalAlpha = p;
+					P.caixa(x, y, z, 2.2, 2.2, 1.3, COR.portaria);
+					P.faceY(y + 2.2, x + 0.35, x + 1.85, z + 0.55, z + 1.05, COR.vidro);
+					P.faceX(x + 2.2, y + 0.4, y + 1.1, z, z + 1.0, COR.porta);
+					P.caixa(x - 0.2, y - 0.2, z + 1.3, 2.6, 2.6, 0.16, COR.laje);
+					if (deitada) {
 						P.caixa(x + 2.35, y + 1.75, 0, 0.3, 0.3, 0.8 * p, COR.laje);
-						for (var s = 0; s < 5; s++) {
-							P.caixa(x + 2.65 + s * 0.36, y + 1.84, 0.62, 0.36, 0.12, 0.12,
-								sombras(s % 2 ? '#ffffff' : '#e05a47'));
+						for (s = 0; s < 5; s++) {
+							P.caixa(x + 2.65 + s * 0.36, y + 1.84, 0.62, 0.36, 0.12, 0.12, sombras(s % 2 ? '#ffffff' : '#e05a47'));
 						}
-						P.ctx.globalAlpha = 1;
+					} else {
+						P.caixa(x + 1.75, y + 2.35, 0, 0.3, 0.3, 0.8 * p, COR.laje);
+						for (s = 0; s < 5; s++) {
+							P.caixa(x + 1.84, y + 2.65 + s * 0.36, 0.62, 0.12, 0.36, 0.12, sombras(s % 2 ? '#ffffff' : '#e05a47'));
+						}
 					}
-				});
-			})(ip);
-		}
+					P.ctx.globalAlpha = 1;
+				}
+			});
+		});
 
-		/* Prédios: térreo, andares (2 apartamentos por andar) e cobertura */
+		/* --- Prédios: térreo (ou pódio com as lojas), andares e cobertura --- */
 		var predios = [];
+		var lojasFeitas = [];
 		for (var ib = 0; ib < n.predios; ib++) {
 			(function (i) {
-				var x = x0 + (i % cols) * (BW + GAP), y = y0 + Math.floor(i / cols) * (BD + GAP);
+				var x = x0 + (i % cols) * celula, y = y0 + Math.floor(i / cols) * celula;
 				var inicio = tPred + i * passoPredio;
+				var qtdLojas = lojasPorPredio[i] || 0;
 				var predio = { inicio: inicio, fimCobertura: inicio + (n.andares + 1) * passoAndar + 350 };
 				predios.push(predio);
+
+				// Vitrines divididas entre as duas faces à vista do pódio
+				var frenteL = BW + PD, direitaL = BD + PD;
+				var nFrente = qtdLojas ? Math.max(1, Math.round(qtdLojas * frenteL / (frenteL + direitaL))) : 0;
+				if (nFrente > qtdLojas) nFrente = qtdLojas;
+				var nDireita = qtdLojas - nFrente;
+				for (var j = 0; j < qtdLojas; j++) lojasFeitas.push(inicio + DUR_NIVEL + j * passoLoja + 300);
+
+				function vitrines(P, t, z) {
+					var yf = y + BD + PD, xf = x + BW + PD, j, p, xa, xb, ya, yb;
+					for (j = 0; j < nFrente; j++) {
+						p = suave((t - (inicio + DUR_NIVEL + j * passoLoja)) / 300);
+						if (p <= 0) continue;
+						P.ctx.globalAlpha = p;
+						xa = x + j * frenteL / nFrente; xb = x + (j + 1) * frenteL / nFrente;
+						P.faceY(yf, xa + 0.12, xb - 0.12, z + 0.12, z + 0.72, COR.vidro);
+						P.poli([P.p(xa, yf, z + 0.95), P.p(xb, yf, z + 0.95), P.p(xb, yf + 0.5, z + 0.72), P.p(xa, yf + 0.5, z + 0.72)],
+							j % 2 ? '#ffffff' : COR.toldo);
+						P.ctx.globalAlpha = 1;
+					}
+					for (j = 0; j < nDireita; j++) {
+						p = suave((t - (inicio + DUR_NIVEL + (nFrente + j) * passoLoja)) / 300);
+						if (p <= 0) continue;
+						P.ctx.globalAlpha = p;
+						ya = y + j * direitaL / nDireita; yb = y + (j + 1) * direitaL / nDireita;
+						P.faceX(xf, ya + 0.12, yb - 0.12, z + 0.12, z + 0.72, COR.vidro);
+						P.poli([P.p(xf, ya, z + 0.95), P.p(xf, yb, z + 0.95), P.p(xf + 0.5, yb, z + 0.72), P.p(xf + 0.5, ya, z + 0.72)],
+							j % 2 ? '#ffffff' : COR.toldo);
+						P.ctx.globalAlpha = 1;
+					}
+				}
 
 				function nivel(P, t, k, detalhe) {
 					var ini = inicio + k * passoAndar;
@@ -307,6 +431,13 @@
 					if (p <= 0) return false;
 					var z = k * FH + (1 - p) * 2.5;
 					P.ctx.globalAlpha = p;
+					if (k === 0 && qtdLojas) {
+						// Térreo comercial: o pódio das lojas, em volta da torre
+						P.caixa(x, y, z, BW + PD, BD + PD, FH, COR.podio);
+						P.ctx.globalAlpha = 1;
+						if (p >= 1) vitrines(P, t, z);
+						return true;
+					}
 					P.caixa(x, y, z, BW, BD, FH, COR.predio);
 					if (detalhe) {
 						P.faceY(y + BD, x, x + BW, z, z + 0.07, COR.faixaAndar[0]);
@@ -334,20 +465,18 @@
 					var some = clamp01((t - predio.fimCobertura - 300) / 500);
 					var alfa = aparece * (1 - some);
 					if (alfa <= 0) return;
-					var mx = x + BW + 0.5, my = y + BD / 2 - 0.15;
+					var mx = x + BW + PD + 0.6, my = y + BD / 2 - 0.15;
 					var alturaTotal = (n.andares + 1) * FH + 2.2;
 					var zTopo = alturaTotal * aparece;
-					var c = P.ctx;
+					var c = P.ctx, detalhe = P.S >= 3;
 					c.globalAlpha = alfa;
 					P.caixa(mx, my, 0, 0.3, 0.3, zTopo, COR.guindaste);
 					P.caixa(x - 0.4, my + 0.05, zTopo, mx - x + 0.4, 0.2, 0.22, COR.guindaste);
-					var detalhe = P.S >= 3;
 					if (detalhe) {
 						P.caixa(mx + 0.3, my + 0.05, zTopo, 1.5, 0.2, 0.22, COR.guindaste);
 						P.caixa(mx + 1.2, my - 0.05, zTopo - 0.45, 0.6, 0.4, 0.45, COR.laje);
 						P.caixa(mx - 0.05, my - 0.05, zTopo + 0.22, 0.4, 0.4, 0.35, COR.guindaste);
 					}
-					// Cabo descendo até o andar em construção
 					var hx = x + BW / 2, hy = my + 0.15;
 					var a = P.p(hx, hy, zTopo), b = P.p(hx, hy, Math.max(topoObra, 0) + 0.25);
 					c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]);
@@ -356,19 +485,24 @@
 					c.globalAlpha = 1;
 				}
 
-				fundo.push({
-					chave: x + BW / 2 + y + BD / 2,
-					fim: predio.fimCobertura + 800,
-					caixa: [x, y, 0, x + BW, y + BD, (n.andares + 1) * FH + 1.2],
+				solidos.push({
+					chave: x + (BW + PD) / 2 + y + (BD + PD) / 2,
+					fim: Math.max(predio.fimCobertura + 800, inicio + DUR_NIVEL + qtdLojas * passoLoja + 300),
+					caixa: [x, y, 0, x + BW + PD, y + BD + PD, (n.andares + 1) * FH + 1.2],
 					desenhar: function (P, t) {
-						// Em escala pequena não há janelas: os andares já assentados viram um bloco só
 						var detalhe = P.S >= 3;
 						var topoObra = 0, k = 0;
+						// Em escala pequena só o andar mais recente aparece descendo
 						if (!detalhe) {
-							// Só o andar mais recente aparece descendo; os de baixo já contam como assentados
 							var iniciados = Math.min(n.andares, Math.floor((t - inicio) / passoAndar));
 							if (iniciados >= 1) {
-								P.caixa(x, y, 0, BW, BD, iniciados * FH, COR.predio);
+								if (qtdLojas) {
+									P.caixa(x, y, 0, BW + PD, BD + PD, FH, COR.podio);
+									vitrines(P, t, 0);
+									if (iniciados >= 2) P.caixa(x, y, FH, BW, BD, (iniciados - 1) * FH, COR.predio);
+								} else {
+									P.caixa(x, y, 0, BW, BD, iniciados * FH, COR.predio);
+								}
 								k = iniciados;
 								topoObra = iniciados * FH;
 							}
@@ -396,43 +530,20 @@
 			})(ib);
 		}
 
-		/* Lojas com toldo listrado */
-		var lojasFeitas = [];
-		for (var il = 0; il < n.lojas; il++) {
-			(function (i) {
-				var x = xLojas + (i % lojaPorFila) * 3.0, y = yF + Math.floor(i / lojaPorFila) * 3.2;
-				var inicio = tLoja + i * passoLoja;
-				lojasFeitas.push(inicio + 450);
-				frente.push({
-					chave: x + 1.3 + y + 1.1,
-					fim: inicio + 450,
-					caixa: [x, y, 0, x + 2.6, y + 2.8, 1.7],
-					desenhar: function (P, t) {
-						var p = suave((t - inicio) / 450);
-						if (p <= 0) return;
-						var z = (1 - p) * 3;
-						P.ctx.globalAlpha = p;
-						P.caixa(x, y, z, 2.6, 2.2, 1.6, COR.loja);
-						P.faceY(y + 2.2, x + 0.3, x + 2.3, z + 0.1, z + 1.05, COR.vidro);
-						P.faceY(y + 2.2, x + 0.5, x + 2.1, z + 1.38, z + 1.52, '#353940');
-						for (var s = 0; s < 6; s++) {
-							var xa = x + s * 2.6 / 6, xb = x + (s + 1) * 2.6 / 6;
-							P.poli([P.p(xa, y + 2.2, z + 1.3), P.p(xb, y + 2.2, z + 1.3), P.p(xb, y + 2.8, z + 1.02), P.p(xa, y + 2.8, z + 1.02)],
-								s % 2 ? '#ffffff' : COR.toldo);
-						}
-						P.ctx.globalAlpha = 1;
-					}
-				});
-			})(il);
-		}
-
-		/* Vagas: cobertas, descobertas e visitantes (com carros) */
+		/* --- Vagas: cobertas (leste), descobertas e visitantes (oeste) --- */
 		var vagasFeitas = [];
 		var numeroVaga = 0, numeroVisitante = 0;
 		for (var iv = 0; iv < totalVagas; iv++) {
 			(function (i) {
-				var tipo = i < n.cobertas ? 'coberta' : (i < n.cobertas + n.descobertas ? 'descoberta' : 'visitante');
-				var pos = vagaPos(i), x = pos.x, y = pos.y;
+				var tipo, pos;
+				if (i < n.cobertas) {
+					tipo = 'coberta';
+					pos = vagaPos(leste, i, xLeste);
+				} else {
+					tipo = i < n.cobertas + n.descobertas ? 'descoberta' : 'visitante';
+					pos = vagaPos(oeste, i - n.cobertas, xOeste);
+				}
+				var x = pos.x, y = pos.y;
 				var inicio = tVaga + i * passoVaga;
 				var rotulo = tipo === 'visitante'
 					? 'V' + (cfg.vagas.numeradas ? ++numeroVisitante : '')
@@ -451,25 +562,23 @@
 						if (p <= 0) return;
 						P.ctx.globalAlpha = p;
 						if (P.S < 2) {
-							// Escala muito pequena: a vaga vira um retângulo só
 							P.chao(x + 0.1, y + 0.1, SW - 0.2, SD - 0.2, tipo === 'visitante' ? '#7ea6d3' : '#c4c9ce', 0.01);
 						} else {
 							if (tipo === 'visitante') P.chao(x + 0.08, y + 0.08, SW - 0.16, SD - 0.16, 'rgba(61,127,196,.55)', 0.01);
 							P.chao(x, y, 0.07, SD, COR.linhaVaga, 0.02);
 							P.chao(x + SW - 0.07, y, 0.07, SD, COR.linhaVaga, 0.02);
 							P.chao(x, y, SW, 0.07, COR.linhaVaga, 0.02);
-							// Número só quando ainda dá para ler
 							if (rotulo && P.S >= 8) P.textoChao(rotulo, x + SW / 2, y + SD - 0.55, 0.6, '#ffffff');
 						}
 						P.ctx.globalAlpha = 1;
 					}
 				});
 
-				// Carro e cobertura da mesma vaga andam juntos (o carro sempre fica embaixo da cobertura)
 				if (temCarro || tipo === 'coberta') {
-					unidadesVaga.push({
-						inicio: inicio,
+					solidos.push({
+						chave: x + SW / 2 + y + SD / 2,
 						fim: inicio + 750,
+						caixa: [x, y, 0, x + SW, y + SD, 1.5],
 						desenhar: function (P, t) {
 							var simples = P.S < 3;
 							if (temCarro) {
@@ -505,17 +614,17 @@
 			})(iv);
 		}
 
-		function porProfundidade(a, b) { return a.chave - b.chave; }
-		fundo.sort(porProfundidade);
-		frente.sort(porProfundidade);
+		solidos.sort(function (a, b) { return a.chave - b.chave; });
 
 		// Limites da cena (para enquadrar no canvas)
 		var altura = (n.andares + 1) * FH + 1.2;
+		var xa = temRua('O') ? -3.4 : 0, xb = temRua('L') ? loteW + 3.4 : loteW;
+		var ya = temRua('N') ? -3.4 : 0, yb = temRua('S') ? loteD + 3.4 : loteD;
 		var pontos = [
-			[0, 0, -0.4], [loteW, 0, -0.4], [-2, loteD + 3.2, -0.4], [loteW + 2, loteD + 3.2, -0.4], [loteW + 2, loteD, -0.4],
-			[0, 0, 2.2], [loteW - 0.9, 0.9, 2.2]
+			[xa, ya, -0.4], [xb, ya, -0.4], [xa, yb, -0.4], [xb, yb, -0.4],
+			[xa, ya, 2.2], [xb, ya, 2.2],
+			[x0, y0, altura], [x0 + regiaoW, y0, altura], [x0, y0 + regiaoD, altura], [x0 + regiaoW, y0 + regiaoD, altura]
 		];
-		if (n.predios) pontos.push([x0, y0, altura], [x0 + regiaoW, y0, altura], [x0, y0 + regiaoD, altura]);
 
 		function feitos(lista, t) {
 			var c = 0;
@@ -533,44 +642,8 @@
 			return feito >= total ? real : Math.round(real * feito / total);
 		}
 
-		/*
-		 * Camadas: o que já terminou fica guardado numa imagem e não é redesenhado.
-		 * Chão e estacionamento terminam na mesma ordem em que começam, então basta um ponteiro.
-		 */
-		function novaCamada() { return { canvas: document.createElement('canvas'), versao: -1, prontos: 0 }; }
-		var camadaChao = novaCamada(), camadaVagas = novaCamada();
-
-		function desenharEmCamadas(P, t, camada, itens) {
-			var dpr = P.dpr, i;
-			if (camada.versao !== P.versao) {
-				camada.canvas.width = P.canvas.width;
-				camada.canvas.height = P.canvas.height;
-				camada.versao = P.versao;
-				camada.prontos = 0;
-			}
-			if (camada.prontos < itens.length && t >= itens[camada.prontos].fim) {
-				var cc = camada.canvas.getContext('2d');
-				var Q = P.clonar(cc);
-				cc.setTransform(dpr, 0, 0, dpr, 0, 0);
-				while (camada.prontos < itens.length && t >= itens[camada.prontos].fim) {
-					var item = itens[camada.prontos];
-					item.desenhar(Q, item.fim);
-					camada.prontos++;
-				}
-			}
-			if (camada.prontos) P.ctx.drawImage(camada.canvas, 0, 0, P.canvas.width / dpr, P.canvas.height / dpr);
-			for (i = camada.prontos; i < itens.length; i++) {
-				if (itens[i].inicio !== undefined && t < itens[i].inicio) break; // os seguintes ainda não começaram
-				itens[i].desenhar(P, t);
-			}
-		}
-
-		function desenharSolidos(P, t, lista) {
-			for (var i = 0; i < lista.length; i++) {
-				var s = lista[i];
-				if (t >= s.fim) desenharPronto(P, s); else s.desenhar(P, t);
-			}
-		}
+		// Camada do chão: o que já foi pintado fica guardado numa imagem
+		var camada = { canvas: document.createElement('canvas'), versao: -1, prontos: 0 };
 
 		return {
 			fim: fim,
@@ -578,10 +651,31 @@
 			pontos: pontos,
 			fases: fases,
 			desenhar: function (P, t) {
-				desenharEmCamadas(P, t, camadaChao, chao);
-				desenharSolidos(P, t, fundo);
-				desenharEmCamadas(P, t, camadaVagas, unidadesVaga);
-				desenharSolidos(P, t, frente);
+				var dpr = P.dpr, i;
+				if (camada.versao !== P.versao) {
+					camada.canvas.width = P.canvas.width;
+					camada.canvas.height = P.canvas.height;
+					camada.versao = P.versao;
+					camada.prontos = 0;
+				}
+				if (camada.prontos < chao.length && t >= chao[camada.prontos].fim) {
+					var cc = camada.canvas.getContext('2d');
+					var Q = P.clonar(cc);
+					cc.setTransform(dpr, 0, 0, dpr, 0, 0);
+					while (camada.prontos < chao.length && t >= chao[camada.prontos].fim) {
+						chao[camada.prontos].desenhar(Q, chao[camada.prontos].fim);
+						camada.prontos++;
+					}
+				}
+				if (camada.prontos) P.ctx.drawImage(camada.canvas, 0, 0, P.canvas.width / dpr, P.canvas.height / dpr);
+				for (i = camada.prontos; i < chao.length; i++) {
+					if (chao[i].inicio !== undefined && t < chao[i].inicio) break;
+					chao[i].desenhar(P, t);
+				}
+				for (i = 0; i < solidos.length; i++) {
+					var s = solidos[i];
+					if (t >= s.fim) desenharPronto(P, s); else s.desenhar(P, t);
+				}
 			},
 			contadores: function (t) {
 				var andaresFeitos = 0, prediosFeitos = 0;
@@ -594,7 +688,6 @@
 					apartamentos: proporcional(cfg.total_apartamentos, andaresFeitos, n.predios * n.andares),
 					portarias: proporcional(cfg.portarias, feitos(portariasFeitas, t), n.portarias),
 					lojas: proporcional(cfg.lojas, feitos(lojasFeitas, t), n.lojas),
-					vagas: proporcional(cfg.vagas.cobertas + cfg.vagas.descobertas + cfg.vagas.visitantes, feitos(vagasFeitas, t), totalVagas),
 					cobertas: proporcional(cfg.vagas.cobertas, feitosFaixa(vagasFeitas, 0, n.cobertas, t), n.cobertas),
 					descobertas: proporcional(cfg.vagas.descobertas, feitosFaixa(vagasFeitas, n.cobertas, n.cobertas + n.descobertas, t), n.descobertas),
 					visitantes: proporcional(cfg.vagas.visitantes, feitosFaixa(vagasFeitas, n.cobertas + n.descobertas, totalVagas, t), n.visitantes)
