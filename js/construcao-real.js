@@ -232,6 +232,13 @@
 			if (totalVagas) entradas.push({ x: CALCADA, y: cyEstac - 1.2, w: (xEstac - 0.5) - CALCADA, d: 2.4 });
 			else caminhos.push({ x: CALCADA, y: cyBloco - 0.8, w: (x0 - 1) - CALCADA, d: 1.6 });
 		}
+		// Calçadão em frente às vitrines e ligação dele com a praça dos prédios,
+		// pelo corredor do meio da galeria (existe mesmo sem portaria a leste)
+		if (n.lojas) {
+			caminhos.push({ x: xGaleria + galeriaW, y: cyBloco - galeriaD / 2, w: 2.4, d: galeriaD });
+			caminhos.push({ x: x0 + regiaoW, y: cyBloco - 0.8, d: 1.6,
+				w: (xGaleria + galeriaW + 2.4) - (x0 + regiaoW) });
+		}
 		// Ligação a pé entre o estacionamento e a praça dos prédios
 		if (totalVagas) {
 			caminhos.push({ x: xEstac + estacW / 2 - 0.8, y: y0 + regiaoD, w: 1.6, d: yEstac - (y0 + regiaoD) });
